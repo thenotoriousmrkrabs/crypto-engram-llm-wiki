@@ -10,7 +10,7 @@ Overriding goal: retrieval fetches the **most accurate answer for the fewest tok
 
 This version is not a content autoposter, trading bot, browser automation system, or full RAG system.
 
-Design decisions are recorded in `docs/DECISIONS.md` (#1–#23) and are authoritative over this file where they conflict.
+Design decisions are recorded in `docs/DECISIONS.md` (#1–#24) and are authoritative over this file where they conflict.
 
 ## Current Architecture
 
@@ -251,7 +251,7 @@ The five canonical roles map to themselves (`needs-triage`, `needs-info`, `ready
 
 ### Domain docs
 
-Single-context. Glossary in `CONTEXT.md`; **ADRs are consolidated in `docs/DECISIONS.md` (#1–#23), not `docs/adr/`**. See `docs/agents/domain.md`.
+Single-context. Glossary in `CONTEXT.md`; **ADRs are consolidated in `docs/DECISIONS.md` (#1–#24), not `docs/adr/`**. See `docs/agents/domain.md`.
 
 ## Safety Constraints
 

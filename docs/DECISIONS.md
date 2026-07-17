@@ -394,3 +394,27 @@ No allowlist for `README`/folder notes: zero such files exist in those roots, an
 Status:
 
 Accepted.
+
+## 24. Capture Policy: Primary Source Is Evidence, Bookmarks Are Discovery; Relevance And Confidence Are Different Dials
+
+Decision:
+
+Two things are settled here — how to capture, and how the two quality dials differ.
+
+**Capture the primary source, not the pointer.** A tweet that *announces* an essay is a discovery signal; the essay itself is the evidence. Because raw is the source of truth (#5) and node never fetches (#7 deferred), the raw file must *contain* the truth, not link to it. So: web-clip the full article (the true link), not the tweet about it. Bookmark freely for discovery; web-clip the full article for anything the wiki should actually know.
+
+**Capture mechanism is source-blind.** The one real folder adapter ingests any markdown dropped into a watched `_Raw_Drops` lane, regardless of origin (browser extension, paste, script). A tweet is a web page, so a bookmarked tweet enters the vault identically to any web clip — clip its URL. Once in `00_Inbox`, the pipeline (dedupe → classify → timeline → index → compile) treats every raw file the same; `source:` is only a label. Handling is uniform; **quality out tracks richness in**, not the lane.
+
+**Relevance and confidence are orthogonal.** The human act of saving/bookmarking/clipping is the *relevance* signal (#10 amendment: human intent decides what enters the wiki). It does NOT set *confidence*. Confidence (#20) measures how well the captured content backs the claim: `high` = source explicit and being restated; `medium` = inferred/merged; `low` = thin/single-source/contradicted. A deeply-wanted bookmark that captured only a snippet is high-relevance, low-confidence — exactly the HIP-4 case in the first compile. Curation makes it worth compiling; only richness makes it high-confidence. Confidence is load-bearing: `low` triggers escalation-to-raw at read time (#14).
+
+**Same story, multiple captures, is kept — not deduped away.** Different captures of one article (bookmark + full clip + stub) have different URLs/content, so dedupe (URL / source_id / content-hash / title+author+date) keeps them all; only identical re-captures (same URL) are dropped. The system can bundle them as discovery-source + child-source (one story). Ideal is both: essay as evidence, bookmark as discovery context.
+
+**The future X-bookmark integration is a fetch adapter over the existing tested pipeline.** When #7/#8 build it, an adapter calls X's bookmarks API (OAuth user-context; paid, access-restricted — verify current terms before scoping), maps each tweet to a `SourceItem`, and hands it to the same pipeline web clips already use. Incremental "new bookmarks only" is handled by existing dedupe (re-pull is idempotent; only unseen tweets create new raw). Only the fetch + auth is new and untested; steps 2–4 are the proven path (the Almanack tweet went through it, and re-ingest-skips-duplicates is verified).
+
+Reason:
+
+The first `/compile` surfaced these: retrieval quality is capped by capture quality, and confidence is a mechanical readout of captured richness, not a judgment of the topic. Writing it down keeps future-you and Hermes from (a) capturing pointers instead of evidence, (b) conflating "I care about this" with "this is well-supported", and (c) fearing the bookmark path is an unknown system when it is a thin fetch adapter over a tested pipeline. The `x_bookmarks` folder + adapter stub are currently vestigial: the web-clipper lane already captures tweets; #7 would make bulk auto-sync real.
+
+Status:
+
+Accepted. Automatic bundle-detection from real clipped links, and the X fetch adapter, remain deferred builds (#7); the capture policy and dial distinction are binding now.
