@@ -188,7 +188,6 @@ Implemented:
 - Dedupe by URL, source ID, cleaned content hash, and title/author/date hash.
 - Source bundle support for a discovery source plus linked child source.
 - Mechanical projections only: timelines, Discord queue drafts, `index.md`, `log.md`, and `.system` indexes. Node no longer writes topic or entity pages (the #17 seam).
-- Daily brief generation into `40_Synthesis/YYYY-MM-DD-daily-brief.md`.
 - `lintWiki` frontmatter/citation contract validator (`npm run lint:wiki`).
 - `/compile` command definition (`.claude/commands/compile.md`).
 - Tests for vault creation, dedupe, raw preservation, note writing safety, raw drops, source bundles, projections, lint contract, and path traversal rejection.
@@ -206,7 +205,6 @@ src/main/ingestion/classifier.js
 src/main/obsidian/writer.js
 src/main/obsidian/wiki.js
 src/main/obsidian/lint.js
-src/main/brief/daily-brief.js
 src/main/adapters/
 tests/vault.test.js
 tests/lint.test.js
@@ -221,7 +219,6 @@ npm run setup-vault
 npm run ingest:mock
 npm run ingest:manual
 npm run ingest:web-clipper
-npm run brief:daily
 npm run lint:wiki
 npm run test
 ```

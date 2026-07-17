@@ -1,5 +1,4 @@
 export * from './adapters/index.js';
-export * from './brief/daily-brief.js';
 export * from './ingestion/classifier.js';
 export * from './ingestion/pipeline.js';
 export * from './obsidian/writer.js';
