@@ -36,6 +36,10 @@ _Avoid_: archive (that is `90_Archive`, for legacy material), backup
 A per-document wiki page that summarizes one raw doc, carrying `sources[]` + `confidence`, with depth adapted to the document's richness. The retrieval middle tier.
 _Avoid_: normalized note, abstract
 
+**Agent-owned root**:
+One of the five vault directories whose pages are written exclusively by compile, never by ingest: `05_Sources`, `10_Topics`, `20_Entities`, `40_Synthesis`, `50_Research_Answers`. Presence in one is itself the contract — every page there carries the six frontmatter fields and cites `sources[]`, whoever wrote it. Node materializes the topic folders but writes no page into them.
+_Avoid_: agent folder, compiled folder, output directory
+
 **Retrieval surface**:
 The set of compiled wiki pages reachable from `index.md` — the only material retrieval ever reads. Distinct from what is merely stored on disk.
 _Avoid_: corpus (when you specifically mean what is retrievable)

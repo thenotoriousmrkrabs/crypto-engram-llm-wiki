@@ -354,3 +354,43 @@ Separating "what to read" from "what to index" lets us cut reading noise without
 Status:
 
 Accepted. Discord API sending remains deferred (#8); this is the design the future bot implements. Filter aggressiveness on the signal channel is tunable config.
+
+## 22. Node Materializes The Approved Topic Folder Map; The Agent Writes The Pages
+
+Decision:
+
+Node keeps creating the `10_Topics/<Topic>/` directories via `REQUIRED_VAULT_FOLDERS`, but writes **no page** into them. `ensureInitialTopicPages` — which seeded six topic pages with authored prose on every ingest — is deleted. Folders: node. Pages: agent.
+
+Reason:
+
+#17 splits ownership **by artifact type**, and a directory is not an artifact. A wiki page carries judgment and cites `sources[]`; an empty directory makes no claim and cannot be wrong, so node creating one is not co-writing the agent's file. The seeds were a real #17 violation (node authored "Hyperliquid is tracked as an evolving intelligence topic" into the agent's file, on every ingest, which is the skeleton-then-enrich model #17 rejected) — but the folders are not.
+
+The folder map must stay node's job because **#19 depends on it existing**: "the agent works within the existing `10_Topics/` list" and must never silently create a folder. The materialized folder list *is* the human gate. If node stopped creating it, the agent would need `mkdir` to compile anything — which is precisely the silent folder creation #19 forbids. The folders are also the coarse retrieval map (#11), and under #16 (forward-accumulating, starts empty) an empty-but-present map is the correct day-one picture.
+
+Recorded because the alternative is invisible from outside: a future architecture review sees node touching `10_Topics/` and flags it as the same seam violation just fixed. The distinction is the reasoning above, and removing folder creation would silently break #19's gate.
+
+Known cost: node still hardcodes the topic list in `REQUIRED_VAULT_FOLDERS` — one of four hand-synced topic lists (`classifier.js` `TOPIC_RULES`, `wiki.js` `TOPICS`, `REQUIRED_VAULT_FOLDERS`, `config/topics.yaml`). Collapsing those is a separate open candidate; this decision does not make it worse.
+
+Status:
+
+Accepted.
+
+## 23. Presence In An Agent-Owned Root Is The Frontmatter Contract; Hand-Written Knowledge Is Raw Evidence
+
+Decision:
+
+Any `.md` under the five **agent-owned roots** (`05_Sources`, `10_Topics`, `20_Entities`, `40_Synthesis`, `50_Research_Answers`) must carry #20's six frontmatter fields, **regardless of author**. `lintWiki` scans all five and emits a single `missing_frontmatter` violation when frontmatter is absent — not six `missing_field` ones.
+
+The escape hatch `if (!frontmatter.type) continue;` is **deleted**. It made omitting frontmatter the way to *escape* the check, which is the exact failure the check exists to catch. It reported "clean" over seven node-written entity pages carrying prose judgment and no `sources[]`.
+
+A human who wants to write knowledge by hand puts it in `00_Inbox/Manual_MD/` as raw evidence — which is what it is, a human-authored source. It is then compiled like anything else, and the resulting wiki page cites the human.
+
+Reason:
+
+A page without `sources[]` cannot be traced to evidence, and #5 makes raw the final authority. Retrieval cannot distinguish "the human knew this" from "the machine made it up" — so an uncited page in the retrieval surface is indistinguishable from a fabrication, which is what #11 exists to prevent. Routing hand-written knowledge to `Manual_MD` keeps #2 intact (raw evidence only in `00_Inbox`; no normalized notes) while giving human authorship a real home rather than an exemption.
+
+No allowlist for `README`/folder notes: zero such files exist in those roots, and a rule with no reader violates #20's governing principle ("a field is added only when something actually reads it"). Add one if a real non-page ever needs to live there.
+
+Status:
+
+Accepted.
