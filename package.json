@@ -1,0 +1,21 @@
+{
+  "name": "content-intelligence-system",
+  "version": "0.1.0",
+  "description": "Local-first Obsidian source ingestion scaffold for crypto and AI intelligence.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "setup-vault": "node scripts/setup-vault.js",
+    "ingest:manual": "node scripts/ingest-manual.js",
+    "ingest:web-clipper": "node scripts/ingest-web-clipper.js",
+    "ingest:mock": "node scripts/ingest-mock.js",
+    "brief:daily": "node scripts/brief-daily.js",
+    "lint:wiki": "node scripts/lint-wiki.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

@@ -1,0 +1,356 @@
+# Architecture Decisions
+
+## 1. `00_Inbox` Is Raw-Only
+
+Decision:
+
+`00_Inbox` stores raw evidence only.
+
+Reason:
+
+Raw files must remain the source of truth. Generated notes in the same folder caused confusion and appeared as duplicated source content.
+
+Status:
+
+Accepted and implemented.
+
+## 2. No Visible Normalized Notes
+
+Decision:
+
+The pipeline should not create visible normalized source notes inside `00_Inbox`.
+
+Reason:
+
+Normalized notes duplicate source text and blur the difference between evidence and interpretation.
+
+Status:
+
+Accepted and implemented for the active ingestion pipeline.
+
+## 3. Hidden Source Cards And Indexes Are Allowed
+
+Decision:
+
+Machine-readable source state is allowed in `.system`.
+
+Reason:
+
+Dedupe, source relationships, routing decisions, and ingestion logs need structured state. Keeping that state hidden avoids cluttering the knowledge vault.
+
+Status:
+
+Accepted and implemented.
+
+## 4. Topic Pages Are Living Understanding
+
+Decision:
+
+`10_Topics` pages are living maps of what the system currently understands.
+
+Reason:
+
+Future Hermes/GBrain retrieval should start with topic pages for context, then follow backlinks to raw evidence for accuracy.
+
+Status:
+
+Accepted and implemented.
+
+## 5. Raw Files Are Source Of Truth
+
+Decision:
+
+Raw source files are the final authority for evidence.
+
+Reason:
+
+Generated summaries and topic pages can be wrong or incomplete. Raw evidence should remain available for verification.
+
+Status:
+
+Accepted and implemented.
+
+## 6. GBrain Deferred
+
+Decision:
+
+Do not implement GBrain, embeddings, vector search, or full RAG yet.
+
+Reason:
+
+The ingestion and vault architecture needs to stabilize first.
+
+Status:
+
+Accepted and deferred.
+
+## 7. Real MCP Integrations Deferred
+
+Decision:
+
+Do not call real MCP/API integrations yet.
+
+Reason:
+
+Adapter contracts and local ingestion behavior should be proven before adding external dependencies, auth, network failures, and provider-specific behavior.
+
+Status:
+
+Accepted and deferred.
+
+## 8. Discord API Deferred
+
+Decision:
+
+Do not send Discord messages yet.
+
+Reason:
+
+The current system should only generate queue drafts. Hermes or a human reviewer should approve notifications before any future sending workflow exists.
+
+Status:
+
+Accepted and deferred.
+
+## 9. The Vault Is The LLM-Wiki; Claude Code Is The Compiler
+
+Decision:
+
+The vault's identity is the LLM-Wiki itself (per Karpathy / nashsu `llm_wiki` / the AI-LLM reference threads), not a rule-based feeder for a separate system. LLM compilation of raw evidence into wiki pages is the core engine. Keyword rules are demoted to a cheap pre-filter/router. The "LLM compile" step is performed by the agent (Claude Code, and later Hermes) following `CLAUDE.md` plus a dedicated ingest skill/slash-command — NOT by an in-process API call, local model, or embeddings library.
+
+Reason:
+
+The reference pattern is fundamentally "LLM compiles raw -> wiki" with two-step analysis-then-generation. Running that compile through the agent (rather than a node API call) keeps the node layer deterministic and zero-dependency, requires no API key, no network, and no embeddings, and therefore does NOT reverse decisions #6 (GBrain/embeddings/RAG deferred) or #7 (MCP/API deferred). It only reframes "LLM" as the operator of the vault, not a library inside it. This matches how every reference implementation actually runs (CLAUDE.md-driven, slash commands like `/save` and `/autoresearch`, Obsidian for browsing).
+
+Status:
+
+Accepted. Supersedes the implicit assumption in the first scaffold that classification/synthesis would remain rule-based. Refines #6/#7 rather than reversing them: no in-process LLM/embeddings/network is introduced.
+
+Division of labor (initial):
+- Node (deterministic, zero-dep): ingest raw into `00_Inbox`, dedupe, preserve raw, maintain machine state in `.system`.
+- Agent (Claude Code / Hermes): read raw, analyze, write/update wiki pages with `sources[]` frontmatter, maintain the human-readable index and log, lint.
+
+## 10. Two Clocks: Continuous Ingest, Scheduled Compile
+
+Decision:
+
+Ingest (node, deterministic, zero-dep) runs continuously / on every source poll — it captures raw, dedupes, scores, and queues, spending no tokens. Compile (the agent turning raw into wiki pages) runs in scheduled batches (default: morning + night), each capped by a token budget, processing a priority queue top-down. Compile priority = content-potential x relevance x source-trust x recency. Source-trust tiers: manual MD / Web Clipper / X bookmarks = high (compile soon, summarize deeply); MCP news firehose = low (batched, lighter touch unless it hits a watchlist term). High-intent saves may trigger an immediate compile.
+
+Reason:
+
+The MCP feeds are a daily, non-stop firehose while manual/clipper/bookmark saves are rare and high-intent. Separating the cheap deterministic clock (ingest) from the expensive token clock (compile) lets the firehose run non-stop without burning tokens, while batching + budgeting the compile keeps cost bounded on heavy days. Dedupe at ingest means compile never wastes tokens on duplicates.
+
+Status:
+
+Accepted.
+
+Amendment (2026-07-15):
+
+`relevance` is DEMOTED. It is no longer a load-bearing factor gating whether firehose content gets compiled. Rationale: once #12 (promote-on-save) and the source-trust tiers exist, HUMAN INTENT is the relevance signal — high-intent sources always compile (you saved them), and firehose items only enter the wiki when you tap-save them (#21). A computed relevance score therefore has no compile-gating job left. Its only surviving role is a cheap keyword/watchlist SORT for the Discord reading digest (#21) — not a wiki gate, and not a page field (#20). Revised compile priority for the queue = content-potential x source-trust x recency; relevance drops out as a gate and survives only as a digest-sort hint.
+
+## 11. The Retrieval Surface Is The Compiled + Indexed Layer Only (Stored != Indexed)
+
+Decision:
+
+Retrieval reads only the compiled wiki pages reachable from `index.md`; it never greps raw directly. Raw is reached only by following a wiki page's `sources[]` backlink. A file existing on disk does NOT make it retrievable — only being compiled into a page and listed in `index.md` does. Therefore uncompiled / low-priority raw cannot dilute retrieval relevancy.
+
+Reason:
+
+This is the core accuracy mechanism. It decouples "stored" from "indexed", so we can keep large amounts of low-relevance raw for recovery / traceability without degrading retrieval. Relevancy is governed by what we index, not what we store. (Mirrors beihuo's "session files exist but don't enter the index".)
+
+Status:
+
+Accepted. Load-bearing principle behind the firehose / cold-store design (#12).
+
+## 12. MCP Firehose: Discord For Reading, Excluded Cold Store On Disk, Promote-On-Save
+
+Decision:
+
+The MCP news firehose is NOT auto-compiled into the vault. It is routed to (a) Discord channels (per source) as a ranked digest the human reads on mobile, and (b) a cheap cold store on disk that Obsidian is configured to exclude from view (e.g. a `.firehose/` or excluded folder) — stored, not indexed. Only items the human selects are promoted via a save action, which fetches the ORIGINAL raw (re-fetch / from cold store, never the Discord message text) into `00_Inbox`, then compiles it. High-intent sources (Web Clipper, Manual MD, X bookmarks) skip Discord triage and go straight to `00_Inbox` for compile.
+
+Reason:
+
+Keeps the curated vault clean and high-relevance (protecting retrieval accuracy per #11) while preserving the full firehose for recovery and as future training data for filter rules. Discord is the mobile reading surface; Obsidian stays the curated KB. Saving the original raw (not a paraphrase) keeps `sources[]` traceable to ground truth.
+
+Status:
+
+Accepted. Cold store recommended (guards against link-rot / deleted tweets); skip only if never recovering an un-saved item is acceptable.
+
+## 13. Discord Is An I/O Surface, Not A Retrieval Corpus
+
+Decision:
+
+Discord is the human's input (commands to Hermes) and output (news to read) surface. Hermes never searches Discord scroll-back as a knowledge source; all retrieval happens against the compiled Obsidian vault. Discord message history is not the archive and is not `sources[]`-addressable.
+
+Reason:
+
+Discord is ephemeral, not greppable, retention-limited, and not backlinkable. Treating it as a corpus would break traceability (#5) and accuracy (#11). Clean separation: Discord = I/O, vault = corpus + retrieval engine.
+
+Status:
+
+Accepted.
+
+## 14. Source-Summary Tier With Adaptive Depth + Escalation-To-Raw
+
+Decision:
+
+Each compiled raw doc gets a per-source summary page (outside `00_Inbox`) carrying `sources[]` + `confidence`. Summary depth is adaptive: a tweet gets 1-3 lines; a dense research report gets a structured extract (thesis, key data / numbers, methodology, caveats, figure callouts) and may include verbatim "key extracts". CLAUDE.md must encode an escalation rule: if a query needs specific figures, verbatim claims, methodology, or the summary's confidence is low, the agent MUST open the raw via `sources[]` rather than answer from the summary alone.
+
+Reason:
+
+The summary tier is the retrieval middle layer (timyangnet's summary layer, nashsu's sources/) that lets the agent answer without loading full raw — the main token saver. Adaptive depth prevents thin summaries from losing important detail in rich docs. Escalation-to-raw guarantees accuracy-critical queries always hit ground truth, so token minimization applies to the common case without capping max accuracy. This does NOT reverse #2 (no normalized notes IN `00_Inbox`): summaries are compressed syntheses living outside the inbox, not duplicates inside it.
+
+Status:
+
+Accepted.
+
+## 15. Human/Agent-Readable index.md + log.md
+
+Decision:
+
+Add a markdown `index.md` (one line per wiki page: path | summary | tags) as the retrieval entry point, and an append-only `log.md` recording ingests / compiles / queries / lints. These are distinct from and complementary to the machine-readable `.system/*.json` state (which stays for dedupe / routing).
+
+Reason:
+
+The references make `index.md` the cheap always-loaded entry point for retrieval (load index -> read summaries -> open raw if needed) and `log.md` the chronological record. The current vault only has machine JSON in `.system`, which the retrieval cascade cannot use as a human / agent-browsable catalog.
+
+Status:
+
+Accepted.
+
+## 16. Forward-Accumulating; No Backfill; Dated Pages + Timelines For Temporal Queries
+
+Decision:
+
+The vault starts empty at launch and accumulates only going forward — there is no historical backlog to import (the user begins dumping after the build). Depth is a function of run-time, not build-time; temporal queries (e.g. "Hyperliquid growth over months") become answerable only after enough accumulation. To support such queries, wiki pages carry `date`/`published` frontmatter and `30_Timelines` threads dated evidence; topic pages may maintain a metrics-over-time section.
+
+Reason:
+
+No existing clips exist to backfill, so no cold-start import pass is needed. Temporal comparison is a first-class query type that needs dated structure and a timeline layer to answer cheaply and accurately.
+
+Status:
+
+Accepted.
+
+## 17. The Node/Agent Compile Seam Splits By Artifact Type
+
+Decision:
+
+The boundary between the deterministic node layer and the agent compile is drawn by artifact type:
+- Node (deterministic, zero-dep, continuous): MECHANICAL projections that need no judgment — timelines (date-sorted lists), Discord queue drafts, `index.md`/`log.md` scaffolding, raw-source frontmatter, `.system` state.
+- Agent (compiled, token-spending, scheduled): anything requiring synthesis or judgment — source-summaries, topic pages, entity pages, synthesis/daily briefs, research answers — each carrying `sources[]` + `confidence`.
+Node and agent own DIFFERENT files; they never co-write the same file.
+
+Reason:
+
+This is the concrete restatement of #9's division of labor and #10's two-clocks. It keeps cheap, already-working deterministic generation for mechanical artifacts (and their passing tests), spends tokens only where real understanding is required, and avoids the overwrite conflict of a skeleton-then-enrich model (node regenerating a page would erase the agent's synthesis). Rejected alternatives: "everything agent-compiled" (wastes tokens on mechanical lists, discards working code) and "skeleton + enrich same file" (node/agent fight over one file).
+
+Status:
+
+Accepted. Supersedes the v1 approach where `rebuildWikiProjections` deterministically generated topic/entity pages from templates. Implication: topic/entity page generation must move out of node's deterministic rebuild and become an agent compile step; node retains timeline + queue generation.
+
+## 18. Folder Layout
+
+Decision:
+
+- Keep the numbered folder scheme (`00_`, `05_`, `10_`, ...) — do not rename.
+- `firehose/` cold store lives OUTSIDE the Obsidian vault (project-level sibling to `vault/`), so firehose volume never bloats the curated KB or its backups.
+- `05_Sources/` (per-source summary tier) slots between `00_Inbox` and `10_Topics`.
+- Add `index.md` and `log.md` at the vault root (per #15).
+- Archive legacy drift folders into `90_Archive`: `10_Daily_Briefs`, `40_Narrative_Briefs`, `50_Content_Drafts`, `60_Prompt_Rules`, `70_Performance`, `.ingestion`.
+
+Target layout:
+
+```text
+content-intelligence-system/
+  firehose/                         cold store, OUTSIDE vault, stored-not-indexed (#12)
+  vault/Content_Intelligence_Vault/
+    index.md                        retrieval entry point (#15)
+    log.md                          append-only ops log (#15)
+    00_Inbox/                       raw evidence, curated/high-intent (#1,#5)
+    05_Sources/                     per-source summaries, AGENT-compiled (#14)
+    10_Topics/                      topic pages, AGENT-compiled (#17)
+    20_Entities/                    entity pages, AGENT-compiled (#17)
+    30_Timelines/                   timelines, NODE/mechanical (#17)
+    40_Synthesis/                   daily briefs + synthesis, AGENT (#17)
+    50_Research_Answers/            query write-backs, AGENT (#14)
+    60_Discord_Queues/              queue drafts, NODE/mechanical (#17)
+    80_Templates/
+    90_Archive/                     legacy folders moved here
+    .system/                        machine state, NODE (#3)
+```
+
+Reason:
+
+The established numbered scheme sorts cleanly in Obsidian, so renaming would only churn. Putting `firehose/` outside the vault keeps the curated vault clean and protects retrieval relevancy (#11/#12). `05_Sources/` between Inbox and Topics reflects the pipeline order raw -> summary -> topic. Archiving legacy folders removes number collisions (two each of 10/40/50/60) and pre-model clutter.
+
+Status:
+
+Accepted.
+
+## 19. Topic Growth Is Gated; Entity Growth Is Auto-Thresholded
+
+Decision:
+
+Topics and entities grow by different rules:
+- **Topics are gated.** The agent works within the existing `10_Topics/` list. When it detects a *recurring, multi-source, high-rank* theme that fits no existing topic, it logs a **proposed** new topic (to `log.md` + a Discord nudge) rather than silently creating a folder. The human approves -> the topic page is created. Trigger to propose = recurrence + quality (not a single mention): e.g. sustained high-priority coverage across >= N sources.
+- **Content is never blocked while a topic proposal is pending.** The raw is still captured, its source-summary is still written, and entities are still created; the item attaches to the nearest existing topic (or a catch-all like `Crypto_Market_Structure`) until approval. Approval controls the *grouping only*, never whether knowledge is kept.
+- **Entities are auto-created, thresholded.** An entity page is created automatically once it clears a bar: **appears in >= 2 sources, OR one high-confidence source explicitly about it.** No human approval needed. (Below the bar, the name can still be mentioned inline on a page without getting its own entity file.)
+- **Entities can graduate to topics.** An entity that later generates sustained multi-source coverage in its own right triggers the same topic-proposal path. (This is why a thing like Hyperliquid is both an entity — the chain — and a topic — the whole area.)
+
+Reason:
+
+Topics are the coarse retrieval map; letting the agent spawn folders freely would fragment the map and hurt relevancy (#11), so a human gate keeps the taxonomy coherent — but blocking capture on approval would lose knowledge, so capture proceeds and only grouping waits. Entities are fine-grained and numerous; gating each one behind approval would be unusable, so they key on a concrete recurrence/confidence threshold (not sentiment like "significant impression", which is uncodeable). The graduation path lets fine-grained entities become coarse topics when they earn it, keeping the map current without manual bookkeeping. Sharpens the handoff's open question ("entity auto-creation may be too broad") and CLAUDE.md's open question on which entity types need approval.
+
+Status:
+
+Accepted. Threshold value (N sources for a topic proposal; the >=2 / high-confidence entity bar) is a tunable config, defaults as stated.
+
+## 20. Page Frontmatter Schema: Only Fields With A Live Reader
+
+Decision:
+
+Every AGENT-compiled wiki page (source-summary, topic, entity, synthesis, research-answer) carries this frontmatter and no more:
+
+```yaml
+---
+type: topic            # topic | entity | source-summary | synthesis | answer  -> index.md filtering
+sources: [...]         # raw files this page was compiled from -> ground-truth backlink (#5/#11/#14)
+confidence: high       # high | medium | low -> drives escalation-to-raw (#14)
+published: 2026-07-02  # date the EVIDENCE was published -> temporal queries + timelines (#16)
+updated: 2026-07-06    # date the PAGE was last compiled -> staleness / "when last touched"
+tags: [hyperliquid]    # few routing keywords -> index.md line is path | summary | tags (#15)
+---
+```
+
+Governing rule: **a field is added only when something actually READS it today.** Two candidate fields are deliberately excluded:
+- `relevance` — NOT a page field. Relevance is judged fresh against each query, so a stored score is either ignored or stale/misleading. The one useful relevance decision happens at ingest and lives in `.system` (see #10 amendment), never on the page.
+- `explored` (stub/partial/explored) — DEFERRED, not dropped. It only earns its keep once a consumer exists (an `/autoresearch` deepening loop or a dashboard). Neither is in the current plan, so adding it now is a field with no reader. Add it if/when that consumer is built.
+
+Raw evidence files are NOT covered by this schema — they carry node-written raw frontmatter (id, source url, captured date, ingest score) and are the source of truth, not compiled pages.
+
+Reason:
+
+The frontmatter is the only machine-readable handle retrieval and maintenance have; a field nothing reads is token overhead on every page, and premature fields (like the three-state `explored` the user found confusing) are dead weight until their reader exists. `confidence` is retained because it drives the load-bearing escalation-to-raw behavior (#14); `sources[]` because it is the ground-truth backlink; `published`/`updated` because #16 makes temporal queries first-class and staleness cheap to check; `tags`/`type` because #15's index format and page-type filtering read them. This is an independent first-principles call, not deference to the reference vaults — those informed `confidence`/`explored` but are treated as one person's evidence, not proof of good design.
+
+Status:
+
+Accepted. `explored` is a documented future addition gated on building its consumer.
+
+## 21. Discord Reading Surface: Two Channels (Signal + Raw Firehose), Sort Not Gate
+
+Decision:
+
+The firehose reaches the human as reading through TWO Discord surfaces, both backed by the same cold store (#12):
+- A **signal** channel: relevance-sorted / lightly filtered (watchlist + keyword hits floated to top or shown alone) — the low-noise default reading surface.
+- A **raw firehose** channel: the full unfiltered stream, everything the MCP ships — for deliberate digging.
+
+Filtering here is SAFE because it only decides what hits your eyes, never what enters the wiki: nothing shown or hidden is lost (cold store keeps all; #11/#12). The wiki gate remains **tap-to-save** (human judgment; #12) — relevance never auto-compiles anything into the retrieval surface. Relevance's role at this surface is a SORT/SURFACE hint only, consistent with the #10 amendment.
+
+Reason:
+
+Separating "what to read" from "what to index" lets us cut reading noise without risking retrieval accuracy — the two-channel split gives a curated default plus a full-recall escape hatch, and because both sit on top of the cold store, any filtering is reversible. Auto-compiling by keyword score was rejected: auto-compiled = indexed = in the retrieval surface, which reintroduces the exact dilution risk #11 was built to prevent. Human tap stays the only wiki gate.
+
+Status:
+
+Accepted. Discord API sending remains deferred (#8); this is the design the future bot implements. Filter aggressiveness on the signal channel is tunable config.

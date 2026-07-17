@@ -1,0 +1,204 @@
+{
+  "entries": {
+    "src_bce5d0daa03fc096": {
+      "source_id": "src_bce5d0daa03fc096",
+      "title": "HyperliquidR shares The Almanack of Hyperliquid",
+      "source": "x_bookmarks",
+      "source_url": "https://x.com/HyperliquidR/status/2070408676620349676",
+      "raw_path": "00_Inbox/X_Bookmarks/2026-06-26-HyperliquidR-shares-The-Almanack-of-Hyperliquid.md",
+      "topic": "hyperliquid",
+      "topic_display": "Hyperliquid",
+      "topic_page": "10_Topics/Hyperliquid/Hyperliquid.md",
+      "timeline": "30_Timelines/Hyperliquid.md",
+      "discord_queue": "60_Discord_Queues/hyperliquid.md",
+      "suggested_channel": "hyperliquid",
+      "priority": "high",
+      "entities": [
+        "Hyperliquid"
+      ],
+      "chains": [
+        "Hyperliquid"
+      ],
+      "tokens": [],
+      "narratives": [
+        "Hyperliquid ecosystem"
+      ],
+      "relevance_score": 75,
+      "content_potential": 48,
+      "created_at": "2026-06-26T08:00:00.000Z",
+      "ingested_at": "2026-06-26T16:28:03.737Z"
+    },
+    "src_bbdffdd1c8c034e0": {
+      "source_id": "src_bbdffdd1c8c034e0",
+      "title": "The Almanack of Hyperliquid",
+      "source": "web_articles",
+      "source_url": "https://www.hyperliquidr.xyz/post/the-almanack-of-hyperliquid",
+      "raw_path": "00_Inbox/Web_Articles/2026-06-26-The-Almanack-of-Hyperliquid.md",
+      "topic": "hyperliquid",
+      "topic_display": "Hyperliquid",
+      "topic_page": "10_Topics/Hyperliquid/Hyperliquid.md",
+      "timeline": "30_Timelines/Hyperliquid.md",
+      "discord_queue": "60_Discord_Queues/hyperliquid.md",
+      "suggested_channel": "hyperliquid",
+      "priority": "medium",
+      "entities": [
+        "Hyperliquid",
+        "HyperEVM"
+      ],
+      "chains": [
+        "Hyperliquid",
+        "HyperEVM"
+      ],
+      "tokens": [],
+      "narratives": [
+        "Hyperliquid ecosystem"
+      ],
+      "relevance_score": 60,
+      "content_potential": 40,
+      "created_at": "2026-06-26T08:05:00.000Z",
+      "ingested_at": "2026-06-26T16:28:03.737Z"
+    },
+    "src_da7690d1a5dd1c47": {
+      "source_id": "src_da7690d1a5dd1c47",
+      "title": "Hyperliquid HIP-4 may change builder incentives",
+      "source": "x_bookmarks",
+      "source_url": "https://x.com/example/status/1001",
+      "raw_path": "00_Inbox/X_Bookmarks/2026-06-26-Hyperliquid-HIP-4-may-change-builder-incentives.md",
+      "topic": "hyperliquid",
+      "topic_display": "Hyperliquid",
+      "topic_page": "10_Topics/Hyperliquid/Hyperliquid.md",
+      "timeline": "30_Timelines/Hyperliquid.md",
+      "discord_queue": "60_Discord_Queues/hyperliquid.md",
+      "suggested_channel": "hyperliquid",
+      "priority": "high",
+      "entities": [
+        "Hyperliquid",
+        "HyperEVM",
+        "HIP-4"
+      ],
+      "chains": [
+        "Hyperliquid",
+        "HyperEVM"
+      ],
+      "tokens": [],
+      "narratives": [
+        "Hyperliquid ecosystem",
+        "Protocol incentives"
+      ],
+      "relevance_score": 75,
+      "content_potential": 60,
+      "created_at": "2026-06-26T10:00:00.000Z",
+      "ingested_at": "2026-06-26T16:28:03.737Z"
+    },
+    "src_0b838d4d63a9f4b3": {
+      "source_id": "src_0b838d4d63a9f4b3",
+      "title": "Tokenized stocks gain new market structure attention",
+      "source": "opennews",
+      "source_url": "https://news.example/tokenized-stocks-market-structure",
+      "raw_path": "00_Inbox/OpenNews/2026-06-26-Tokenized-stocks-gain-new-market-structure-attention.md",
+      "topic": "tokenized_stocks",
+      "topic_display": "Tokenized Stocks",
+      "topic_page": "10_Topics/Tokenized_Stocks/Tokenized_Stocks.md",
+      "timeline": "30_Timelines/Tokenized_Stocks.md",
+      "discord_queue": "60_Discord_Queues/tokenized-stocks.md",
+      "suggested_channel": "tokenized-stocks",
+      "priority": "medium",
+      "entities": [
+        "RWA"
+      ],
+      "chains": [],
+      "tokens": [],
+      "narratives": [
+        "RWA distribution"
+      ],
+      "relevance_score": 67,
+      "content_potential": 55,
+      "created_at": "2026-06-26T11:00:00.000Z",
+      "ingested_at": "2026-06-26T16:28:03.737Z"
+    },
+    "src_cf83d160646e721e": {
+      "source_id": "src_cf83d160646e721e",
+      "title": "AI agents begin moving from demos to production workflows",
+      "source": "opennews",
+      "source_url": "https://news.example/ai-agent-wallets",
+      "raw_path": "00_Inbox/OpenNews/2026-06-26-AI-agents-begin-moving-from-demos-to-production-workflows.md",
+      "topic": "ai_agents",
+      "topic_display": "AI Agents",
+      "topic_page": "10_Topics/AI_Agents/AI_Agents.md",
+      "timeline": "30_Timelines/AI_Agents.md",
+      "discord_queue": "60_Discord_Queues/ai-agent.md",
+      "suggested_channel": "ai-agent",
+      "priority": "medium",
+      "entities": [
+        "Wallets",
+        "AI Agents"
+      ],
+      "chains": [],
+      "tokens": [],
+      "narratives": [
+        "Wallet strategy",
+        "Agentic workflows"
+      ],
+      "relevance_score": 67,
+      "content_potential": 62,
+      "created_at": "2026-06-26T12:00:00.000Z",
+      "ingested_at": "2026-06-26T16:28:03.737Z"
+    },
+    "src_4ce6576d6c4a9ab7": {
+      "source_id": "src_4ce6576d6c4a9ab7",
+      "title": "Stablecoin and RWA rails keep converging",
+      "source": "daily_news",
+      "source_url": "https://digest.example/stablecoin-rwa",
+      "raw_path": "00_Inbox/Daily_News/2026-06-26-Stablecoin-and-RWA-rails-keep-converging.md",
+      "topic": "stablecoins",
+      "topic_display": "Stablecoins RWA",
+      "topic_page": "10_Topics/Stablecoins_RWA/Stablecoins_RWA.md",
+      "timeline": "30_Timelines/Stablecoins_RWA.md",
+      "discord_queue": "60_Discord_Queues/stablecoins-rwa.md",
+      "suggested_channel": "stablecoins-rwa",
+      "priority": "medium",
+      "entities": [
+        "Stablecoins",
+        "RWA"
+      ],
+      "chains": [],
+      "tokens": [],
+      "narratives": [
+        "Stablecoin rails",
+        "RWA distribution"
+      ],
+      "relevance_score": 60,
+      "content_potential": 40,
+      "created_at": "2026-06-26T13:00:00.000Z",
+      "ingested_at": "2026-06-26T16:28:03.737Z"
+    },
+    "src_071dd838b054ebf3": {
+      "source_id": "src_071dd838b054ebf3",
+      "title": "Wallet strategy note for agentic users",
+      "source": "manual_md",
+      "source_url": "",
+      "raw_path": "00_Inbox/Manual_MD/2026-06-26-Wallet-strategy-note-for-agentic-users.md",
+      "topic": "ai_agents",
+      "topic_display": "AI Agents",
+      "topic_page": "10_Topics/AI_Agents/AI_Agents.md",
+      "timeline": "30_Timelines/AI_Agents.md",
+      "discord_queue": "60_Discord_Queues/ai-agent.md",
+      "suggested_channel": "ai-agent",
+      "priority": "medium",
+      "entities": [
+        "Wallets",
+        "AI Agents"
+      ],
+      "chains": [],
+      "tokens": [],
+      "narratives": [
+        "Wallet strategy",
+        "Agentic workflows"
+      ],
+      "relevance_score": 57,
+      "content_potential": 65,
+      "created_at": "2026-06-26T14:00:00.000Z",
+      "ingested_at": "2026-06-26T16:28:03.737Z"
+    }
+  }
+}

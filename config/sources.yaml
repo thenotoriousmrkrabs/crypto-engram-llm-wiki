@@ -1,0 +1,59 @@
+sources:
+  x_bookmarks:
+    enabled: true
+    lane: 00_Inbox/X_Bookmarks
+    adapter: XBookmarksAdapter
+    description: Saved X bookmarks for later review.
+
+  x_watchlist:
+    enabled: true
+    lane: 00_Inbox/X_Watchlist
+    adapter: OpenTwitterMCPAdapter
+    description: Future KOL, topic, and account monitoring through opentwitter-mcp.
+
+  opennews:
+    enabled: true
+    lane: 00_Inbox/OpenNews
+    adapter: OpenNewsMCPAdapter
+    description: Future structured crypto and AI news through opennews-mcp.
+
+  daily_news:
+    enabled: true
+    lane: 00_Inbox/Daily_News
+    adapter: DailyNewsMCPAdapter
+    description: Future lightweight daily digest ingestion.
+
+  web_clipper:
+    enabled: true
+    lane: 00_Inbox/Web_Clipper
+    raw_drop: 00_Inbox/Web_Clipper/_Raw_Drops
+    adapter: WebClipperFolderAdapter
+    description: Markdown files exported by Obsidian Web Clipper.
+
+  web_articles:
+    enabled: true
+    lane: 00_Inbox/Web_Articles
+    adapter: StaticSourceAdapter
+    description: Raw linked web article evidence discovered from X posts, clippers, or manual dumps.
+
+  manual_md:
+    enabled: true
+    lane: 00_Inbox/Manual_MD
+    raw_drop: 00_Inbox/Manual_MD/_Raw_Drops
+    adapter: ManualMarkdownAdapter
+    description: Manually dumped Markdown files.
+
+  opentrade_market_readonly_later:
+    enabled: false
+    read_only: true
+    lane: null
+    adapter: OpenTradeMarketReadonlyAdapter
+    description: Future read-only market and token data. Trading actions are disabled.
+    forbidden_actions:
+      - trading
+      - swaps
+      - wallet_transfer
+      - order_placement
+      - leverage
+      - signing
+      - transaction_execution

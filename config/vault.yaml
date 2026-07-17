@@ -1,0 +1,12 @@
+vault:
+  path: ./vault/Content_Intelligence_Vault
+  name: Content_Intelligence_Vault
+  raw_drops:
+    manual_md: 00_Inbox/Manual_MD/_Raw_Drops
+    web_clipper: 00_Inbox/Web_Clipper/_Raw_Drops
+  ingestion_state:
+    folder: .system
+    log: .system/ingest-log.jsonl
+    dedupe_index: .system/dedupe-index.json
+    source_index: .system/source-index.json
+    routing_index: .system/routing-index.json

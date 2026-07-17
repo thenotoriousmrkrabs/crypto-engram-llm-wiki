@@ -1,0 +1,45 @@
+watchlists:
+  crypto_market_structure:
+    description: Market structure, exchanges, liquidity, custody, and distribution.
+    accounts: []
+    keywords: []
+
+  ai_agents:
+    description: Autonomous agents, agent frameworks, agent wallets, and onchain AI.
+    accounts: []
+    keywords: []
+
+  llm_research:
+    description: Foundation model, alignment, reasoning, and inference research.
+    accounts: []
+    keywords: []
+
+  wallet_strategy:
+    description: Consumer wallets, smart accounts, embedded wallets, and UX shifts.
+    accounts: []
+    keywords: []
+
+  stablecoins_rwa:
+    description: Stablecoin adoption, treasury rails, settlement, and tokenized RWAs.
+    accounts: []
+    keywords: []
+
+  hyperliquid_ecosystem:
+    description: Hyperliquid protocol, HIPs, builders, HyperEVM, and ecosystem apps.
+    accounts: []
+    keywords: []
+
+  tokenized_stocks:
+    description: Equities onchain, tokenized securities, and market structure.
+    accounts: []
+    keywords: []
+
+  dex_aggregators:
+    description: DEX routing, aggregation, intents, MEV, and execution quality.
+    accounts: []
+    keywords: []
+
+  base_solana_bnb_megaeth:
+    description: Major chain ecosystems and high-throughput infra.
+    accounts: []
+    keywords: []

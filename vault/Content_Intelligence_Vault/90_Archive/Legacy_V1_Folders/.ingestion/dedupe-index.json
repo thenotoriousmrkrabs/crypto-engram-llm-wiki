@@ -1,0 +1,57 @@
+{
+  "dedupeKeys": {
+    "x_bookmarks:source_id:x-bookmark-hyperliquid-hip4": {
+      "path": "00_Inbox/X_Bookmarks/2026-06-26-Hyperliquid-HIP-4-may-change-builder-incentives.md",
+      "source": "x_bookmarks",
+      "source_id": "x-bookmark-hyperliquid-hip4",
+      "title": "Hyperliquid HIP-4 may change builder incentives",
+      "ingested_at": "2026-06-26T14:18:32.815Z"
+    },
+    "opennews:source_id:opennews-tokenized-stocks-001": {
+      "path": "00_Inbox/OpenNews/2026-06-26-Tokenized-stocks-gain-new-market-structure-attention.md",
+      "source": "opennews",
+      "source_id": "opennews-tokenized-stocks-001",
+      "title": "Tokenized stocks gain new market structure attention",
+      "ingested_at": "2026-06-26T14:18:32.815Z"
+    },
+    "opennews:source_id:opennews-ai-agent-001": {
+      "path": "00_Inbox/OpenNews/2026-06-26-AI-agents-begin-moving-from-demos-to-production-workflows.md",
+      "source": "opennews",
+      "source_id": "opennews-ai-agent-001",
+      "title": "AI agents begin moving from demos to production workflows",
+      "ingested_at": "2026-06-26T14:18:32.815Z"
+    },
+    "daily_news:source_id:daily-stablecoin-rwa-001": {
+      "path": "00_Inbox/Daily_News/2026-06-26-Stablecoin-and-RWA-rails-keep-converging.md",
+      "source": "daily_news",
+      "source_id": "daily-stablecoin-rwa-001",
+      "title": "Stablecoin and RWA rails keep converging",
+      "ingested_at": "2026-06-26T14:18:32.815Z"
+    },
+    "manual_md:source_id:manual-wallet-strategy-001": {
+      "path": "00_Inbox/Manual_MD/2026-06-26-Wallet-strategy-note-for-agentic-users.md",
+      "source": "manual_md",
+      "source_id": "manual-wallet-strategy-001",
+      "title": "Wallet strategy note for agentic users",
+      "ingested_at": "2026-06-26T14:18:32.815Z"
+    },
+    "manual_md:file:00_inbox/manual_md/_raw_drops/all_tweets_2026-06-26_07_39_38.md:c01873e4f566013852d09ddad9149e0794b7ef33452a94b228d4f09f0b6f26c3": {
+      "path": "00_Inbox/Manual_MD/2026-06-26-All-exported-content.md",
+      "source": "manual_md",
+      "source_id": "00_Inbox/Manual_MD/_Raw_Drops/all_tweets_2026-06-26_07_39_38.md",
+      "raw_path": "00_Inbox/Manual_MD/_Raw_Drops/all_tweets_2026-06-26_07_39_38.md",
+      "content_hash": "c01873e4f566013852d09ddad9149e0794b7ef33452a94b228d4f09f0b6f26c3",
+      "title": "[Crypto/Issue] What Should Exist on HyperEVM?",
+      "ingested_at": "2026-06-26T14:58:40.178Z"
+    },
+    "web_clipper:file:00_inbox/web_clipper/_raw_drops/clippings/-1-hyperliquid-research-collective-hrc-on-x-the-almanack-of-hyperliquid-written-by-paramonoww-i-used-to-be-a-hater-of-hyperliquid.-the-first-time-i-started-learning-about-it-was-at-the-beginning-of-2024-and-it-didn-t-click.-just-some-perp.md:71301f1a88af1a64fcd8bee21afc7e9fdb647244c89f19b78fa426928753b28a": {
+      "path": "00_Inbox/Web_Clipper/2026-06-26-Post.md",
+      "source": "web_clipper",
+      "source_id": "00_Inbox/Web_Clipper/_Raw_Drops/Clippings/(1) Hyperliquid Research Collective (HRC) on X \"The Almanack of Hyperliquid Written by @paramonoww \"I used to be a hater of Hyperliquid. The first time I started learning about it was at the beginning of 2024, and it didn't click. Just some perp.md",
+      "raw_path": "00_Inbox/Web_Clipper/_Raw_Drops/Clippings/(1) Hyperliquid Research Collective (HRC) on X \"The Almanack of Hyperliquid Written by @paramonoww \"I used to be a hater of Hyperliquid. The first time I started learning about it was at the beginning of 2024, and it didn't click. Just some perp.md",
+      "content_hash": "71301f1a88af1a64fcd8bee21afc7e9fdb647244c89f19b78fa426928753b28a",
+      "title": "(1) Hyperliquid Research Collective (HRC) on X: \"The Almanack of Hyperliquid Written by @paramonoww \"I used to be a hater of Hyperliquid. The first time I started learning about it was at the beginning of 2024, and it didn't click. Just some perp DEX on Arbitrum (like there were dozens of them elsewhere) with heavy\"",
+      "ingested_at": "2026-06-26T15:01:18.366Z"
+    }
+  }
+}

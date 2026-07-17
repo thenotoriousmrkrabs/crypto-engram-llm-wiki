@@ -1,0 +1,13 @@
+node_modules/
+.DS_Store
+.tmp-tests/
+firehose/
+
+# Raw evidence drops — your accumulating reading history (#16 forward-accumulation).
+# Git history is permanent, so keep real clips out of it by default rather than
+# relying on remembering later. Compiled pages and mock seed data still commit.
+vault/Content_Intelligence_Vault/00_Inbox/**/_Raw_Drops/
+
+# Obsidian UI state — churns on every pane change
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
