@@ -82,7 +82,6 @@ export async function ensureVaultStructure({ vaultRoot, projectRoot = PROJECT_RO
   }
 
   await ensureWikiIndexFiles(safeVaultRoot);
-  await ensureInitialTopicPages(safeVaultRoot);
 
   return safeVaultRoot;
 }
@@ -107,51 +106,6 @@ Append-only record of ingests, compiles, queries, and lints.
     if (!fsSync.existsSync(target)) {
       await fs.writeFile(target, content, 'utf8');
     }
-  }
-}
-
-async function ensureInitialTopicPages(vaultRoot) {
-  const topics = [
-    ['10_Topics/Hyperliquid/Hyperliquid.md', 'Hyperliquid'],
-    ['10_Topics/AI_Agents/AI_Agents.md', 'AI Agents'],
-    ['10_Topics/Tokenized_Stocks/Tokenized_Stocks.md', 'Tokenized Stocks'],
-    ['10_Topics/Stablecoins_RWA/Stablecoins_RWA.md', 'Stablecoins RWA'],
-    ['10_Topics/Wallets/Wallets.md', 'Wallets'],
-    ['10_Topics/Crypto_Market_Structure/Crypto_Market_Structure.md', 'Crypto Market Structure']
-  ];
-
-  for (const [relativePath, title] of topics) {
-    const targetPath = assertInside(vaultRoot, path.join(vaultRoot, relativePath));
-    if (fsSync.existsSync(targetPath)) {
-      continue;
-    }
-    await fs.mkdir(path.dirname(targetPath), { recursive: true });
-    await fs.writeFile(targetPath, `# ${title}
-
-## Current Understanding
-
-${title} is tracked as an evolving intelligence topic. The stable summary should change slowly as repeated raw evidence accumulates.
-
-## Latest Signals
-
-- No signals yet.
-
-## Active Narratives
-
-- No active narratives yet.
-
-## Key Entities
-
-- No clear entities yet.
-
-## Open Questions
-
-- What should Hermes research next?
-
-## Source Backlinks
-
-- No source backlinks yet.
-`, 'utf8');
   }
 }
 

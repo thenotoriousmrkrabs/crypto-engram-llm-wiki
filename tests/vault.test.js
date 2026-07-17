@@ -128,10 +128,8 @@ test('ingestion writes raw source and mechanical projections; node never writes 
   assert.match(timeline, /Hyperliquid raw write test/);
   assert.match(timeline, /\[\[00_Inbox\/X_Bookmarks\//);
 
-  // The seam (#17): node does not write topic page bodies or entity pages.
-  const topicSeed = await fs.readFile(path.join(vaultRoot, '10_Topics/Hyperliquid/Hyperliquid.md'), 'utf8');
-  assert.doesNotMatch(topicSeed, /Hyperliquid raw write test/);
-  assert.deepEqual(await listMarkdownFiles(path.join(vaultRoot, '20_Entities')), []);
+  // The seam (#17/#22): after ingest, node has written no page into any agent-owned root.
+  await assertAgentRootsEmpty(vaultRoot);
 });
 
 test('ingestion upserts index.md rows and appends a log.md event', async () => {
@@ -273,12 +271,11 @@ Hyperliquid and HyperEVM are making the exchange programmable.
   const generatedInboxFiles = await listMarkdownFiles(path.join(vaultRoot, '00_Inbox/Manual_MD'));
   assert.deepEqual(generatedInboxFiles.filter((file) => !file.includes(`${path.sep}_Raw_Drops${path.sep}`)), []);
 
-  const topicSeed = await fs.readFile(path.join(vaultRoot, '10_Topics/Hyperliquid/Hyperliquid.md'), 'utf8');
   const timeline = await fs.readFile(path.join(vaultRoot, '30_Timelines/Hyperliquid.md'), 'utf8');
   const queue = await fs.readFile(path.join(vaultRoot, '60_Discord_Queues/hyperliquid.md'), 'utf8');
-  assert.doesNotMatch(topicSeed, /Hyperliquid research dump/);
   assert.match(timeline, /Hyperliquid research dump/);
   assert.match(queue, /Status: pending/);
+  await assertAgentRootsEmpty(vaultRoot);
 
   const log = await readIngestionLog(vaultRoot);
   const ingested = log.find((entry) => entry.event === 'ingested');
@@ -325,8 +322,7 @@ AI agents need wallet permissions, session keys, and explicit policy limits.
   assert.deepEqual(generatedInboxFiles.filter((file) => !file.includes(`${path.sep}_Raw_Drops${path.sep}`)), []);
   const timeline = await fs.readFile(path.join(vaultRoot, '30_Timelines/AI_Agents.md'), 'utf8');
   assert.match(timeline, /Agent Wallets on X/);
-  const topicSeed = await fs.readFile(path.join(vaultRoot, '10_Topics/AI_Agents/AI_Agents.md'), 'utf8');
-  assert.doesNotMatch(topicSeed, /Agent Wallets on X/);
+  await assertAgentRootsEmpty(vaultRoot);
   const routing = await readSystemIndex(vaultRoot, 'routing-index.json', { entries: {} });
   const entry = Object.values(routing.entries).find((candidate) => candidate.title === 'Agent Wallets on X');
   assert.equal(entry.source_url, 'https://x.com/example/status/1');
@@ -407,9 +403,8 @@ test('mock ingestion creates wiki projections, source bundle, and skips second r
   assert.match(timeline, /The Almanack of Hyperliquid/);
   assert.match(queue, /Suggested Discord Channel: hyperliquid/);
 
-  // The seam (#17): node writes no topic bodies or entity pages, and the
-  // resulting vault satisfies the compiled-page contract (no compiled pages yet).
-  assert.deepEqual(await listMarkdownFiles(path.join(vaultRoot, '20_Entities')), []);
+  // The seam (#17/#22): after ingest, node has written no page into any agent-owned root.
+  await assertAgentRootsEmpty(vaultRoot);
   assert.deepEqual(await lintWiki(vaultRoot), []);
 });
 
@@ -435,4 +430,16 @@ async function listMarkdownFiles(root) {
     }
   }
   return files;
+}
+
+const AGENT_OWNED_ROOTS = ['05_Sources', '10_Topics', '20_Entities', '40_Synthesis', '50_Research_Answers'];
+
+async function assertAgentRootsEmpty(vaultRoot) {
+  for (const root of AGENT_OWNED_ROOTS) {
+    assert.deepEqual(
+      await listMarkdownFiles(path.join(vaultRoot, root)),
+      [],
+      `node must not write pages into ${root} (#17/#22)`
+    );
+  }
 }
