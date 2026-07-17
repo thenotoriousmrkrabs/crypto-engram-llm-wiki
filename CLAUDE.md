@@ -238,6 +238,20 @@ If needed, manually select "Open folder as vault" in Obsidian and choose:
 /Users/angjingkang/content-intelligence-system/vault/Content_Intelligence_Vault
 ```
 
+## Agent skills
+
+### Issue tracker
+
+Issues live as GitHub issues on `thenotoriousmrkrabs/content-intelligence-system`, via the `gh` CLI. External PRs are **not** a triage surface. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical roles map to themselves (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context. Glossary in `CONTEXT.md`; **ADRs are consolidated in `docs/DECISIONS.md` (#1–#21), not `docs/adr/`**. See `docs/agents/domain.md`.
+
 ## Safety Constraints
 
 - Keep zero external npm dependencies unless the user explicitly approves a dependency change.
