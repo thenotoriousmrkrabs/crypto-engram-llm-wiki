@@ -74,6 +74,31 @@ test('lintWiki flags a page with no frontmatter as exactly one missing_frontmatt
   assert.equal(violations[0].path, '10_Topics/Hyperliquid/Hyperliquid.md');
 });
 
+test('lintWiki scans the synthesis root (#23: all five agent-owned roots)', async () => {
+  const vaultRoot = await fixtureVault();
+  await writePage(
+    vaultRoot,
+    '40_Synthesis/2026-07-17-daily-brief.md',
+    '# Daily Brief\n\nNode-style brief with no frontmatter.\n'
+  );
+
+  const violations = await lintWiki(vaultRoot);
+  assert.equal(violations.length, 1);
+  assert.equal(violations[0].rule, 'missing_frontmatter');
+  assert.equal(violations[0].path, '40_Synthesis/2026-07-17-daily-brief.md');
+});
+
+test('lintWiki accepts a well-formed synthesis page in 40_Synthesis', async () => {
+  const vaultRoot = await fixtureVault();
+  await writePage(
+    vaultRoot,
+    '40_Synthesis/2026-07-17-weekly-synthesis.md',
+    wellFormedSummary({ type: 'synthesis' })
+  );
+
+  assert.deepEqual(await lintWiki(vaultRoot), []);
+});
+
 test('lintWiki flags a missing required frontmatter field', async () => {
   const vaultRoot = await fixtureVault();
   await writePage(vaultRoot, '05_Sources/missing-confidence.md', wellFormedSummary({ confidence: undefined }));

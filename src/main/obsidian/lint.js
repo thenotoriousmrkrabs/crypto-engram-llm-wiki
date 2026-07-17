@@ -15,7 +15,9 @@ import { walkMarkdownFiles } from './writer.js';
 const COMPILED_ROOTS = {
   '05_Sources': 'source-summary',
   '10_Topics': 'topic',
-  '20_Entities': 'entity'
+  '20_Entities': 'entity',
+  '40_Synthesis': 'synthesis',
+  '50_Research_Answers': 'answer'
 };
 
 const REQUIRED_FIELDS = ['type', 'sources', 'confidence', 'published', 'updated', 'tags'];
