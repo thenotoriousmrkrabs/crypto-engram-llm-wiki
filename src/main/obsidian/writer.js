@@ -167,19 +167,6 @@ export async function createNoteFromTemplate({ vaultRoot, templateName, relative
   };
 }
 
-export async function appendToDailyBrief({ vaultRoot, date = isoDate(new Date()), content }) {
-  const safeVaultRoot = await ensureVaultStructure({ vaultRoot });
-  const briefPath = assertInside(
-    safeVaultRoot,
-    path.join(safeVaultRoot, '40_Synthesis', `${date}-daily-brief.md`)
-  );
-  await fs.appendFile(briefPath, content, 'utf8');
-  return {
-    path: briefPath,
-    relativePath: toVaultRelative(safeVaultRoot, briefPath)
-  };
-}
-
 export async function findExistingByDedupeKey({ vaultRoot, dedupeKey }) {
   const safeVaultRoot = await ensureVaultStructure({ vaultRoot });
   const index = await readDedupeIndex(safeVaultRoot);
@@ -346,14 +333,6 @@ export async function writeSystemIndex(vaultRoot, fileName, value) {
 
 export async function readMarkdownNote(notePath) {
   return fs.readFile(notePath, 'utf8');
-}
-
-function isoDate(value) {
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return new Date().toISOString().slice(0, 10);
-  }
-  return date.toISOString().slice(0, 10);
 }
 
 export async function* walkMarkdownFiles(root) {
