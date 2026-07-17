@@ -111,6 +111,16 @@ test('lintWiki accepts a well-formed synthesis page in 40_Synthesis', async () =
   assert.deepEqual(await lintWiki(vaultRoot), []);
 });
 
+test('lintWiki reports one violation, not two, when type is absent but frontmatter exists', async () => {
+  const vaultRoot = await fixtureVault();
+  await writePage(vaultRoot, '05_Sources/no-type.md', wellFormedSummary({ type: undefined }));
+
+  const violations = await lintWiki(vaultRoot);
+  assert.equal(violations.length, 1);
+  assert.equal(violations[0].rule, 'missing_field');
+  assert.match(violations[0].message, /"type"/);
+});
+
 test('lintWiki flags a missing required frontmatter field', async () => {
   const vaultRoot = await fixtureVault();
   await writePage(vaultRoot, '05_Sources/missing-confidence.md', wellFormedSummary({ confidence: undefined }));

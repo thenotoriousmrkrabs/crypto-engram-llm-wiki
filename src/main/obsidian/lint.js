@@ -75,7 +75,9 @@ function lintCompiledPage({ vaultRoot, pagePath, frontmatter, expectedType }) {
     }
   }
 
-  if (frontmatter.type !== expectedType) {
+  // Only when type is present: an absent type is already reported as
+  // missing_field, and one cause must not yield two violations (#23).
+  if ('type' in frontmatter && frontmatter.type !== expectedType) {
     violation('wrong_folder', `type "${frontmatter.type}" does not belong in this folder (expected "${expectedType}")`);
   }
 
