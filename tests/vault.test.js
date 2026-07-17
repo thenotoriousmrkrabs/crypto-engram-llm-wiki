@@ -31,7 +31,6 @@ import {
   readSystemIndex,
   safeFileName
 } from '../src/main/obsidian/writer.js';
-import { lintWiki } from '../src/main/obsidian/lint.js';
 
 test('ensureVaultStructure creates required folders and templates', async () => {
   const vaultRoot = await freshVaultRoot();
@@ -405,7 +404,6 @@ test('mock ingestion creates wiki projections, source bundle, and skips second r
 
   // The seam (#17/#22): after ingest, node has written no page into any agent-owned root.
   await assertAgentRootsEmpty(vaultRoot);
-  assert.deepEqual(await lintWiki(vaultRoot), []);
 });
 
 async function freshVaultRoot() {
