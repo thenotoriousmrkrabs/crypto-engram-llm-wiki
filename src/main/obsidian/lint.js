@@ -5,9 +5,12 @@ import { splitFrontmatter } from '../utils/frontmatter.js';
 import { PROJECT_ROOT, assertInside, toVaultRelative } from '../utils/paths.js';
 import { walkMarkdownFiles } from './writer.js';
 
-// The contract seam for agent-compiled wiki pages (DECISIONS #17/#20).
+// The contract seam for agent-compiled wiki pages (DECISIONS #17/#20/#23).
 // Deterministic: validates structure and citations, never prose.
-// Pages without a `type` in frontmatter (seed scaffolds) are skipped.
+// Presence in an agent-owned root IS the contract (#23): every page there
+// must carry the six fields, whoever wrote it. A page with no frontmatter
+// is a violation, not a skip — omitting frontmatter must never be the way
+// to escape the check.
 
 const COMPILED_ROOTS = {
   '05_Sources': 'source-summary',
@@ -30,8 +33,13 @@ export async function lintWiki(vaultRoot) {
     }
     for await (const notePath of walkMarkdownFiles(root)) {
       const markdown = await fs.readFile(notePath, 'utf8');
-      const { frontmatter } = splitFrontmatter(markdown);
-      if (!frontmatter.type) {
+      const { frontmatter, rawFrontmatter } = splitFrontmatter(markdown);
+      if (rawFrontmatter === '') {
+        violations.push({
+          path: toVaultRelative(safeVaultRoot, notePath),
+          rule: 'missing_frontmatter',
+          message: 'page in an agent-owned root has no frontmatter (#23: presence is the contract)'
+        });
         continue;
       }
       violations.push(...lintCompiledPage({

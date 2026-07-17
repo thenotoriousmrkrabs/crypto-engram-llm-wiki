@@ -52,12 +52,26 @@ async function writePage(vaultRoot, relativePath, markdown) {
   await fs.writeFile(target, markdown, 'utf8');
 }
 
-test('lintWiki passes a well-formed compiled page and skips seed scaffolds', async () => {
+test('lintWiki passes a well-formed compiled page', async () => {
   const vaultRoot = await fixtureVault();
   await writePage(vaultRoot, '05_Sources/hip-4-report.md', wellFormedSummary());
 
   const violations = await lintWiki(vaultRoot);
   assert.deepEqual(violations, []);
+});
+
+test('lintWiki flags a page with no frontmatter as exactly one missing_frontmatter violation (#23)', async () => {
+  const vaultRoot = await fixtureVault();
+  await writePage(
+    vaultRoot,
+    '10_Topics/Hyperliquid/Hyperliquid.md',
+    '# Hyperliquid\n\nProse with no frontmatter, in an agent-owned root.\n'
+  );
+
+  const violations = await lintWiki(vaultRoot);
+  assert.equal(violations.length, 1);
+  assert.equal(violations[0].rule, 'missing_frontmatter');
+  assert.equal(violations[0].path, '10_Topics/Hyperliquid/Hyperliquid.md');
 });
 
 test('lintWiki flags a missing required frontmatter field', async () => {
