@@ -12,13 +12,16 @@ import { walkMarkdownFiles } from './writer.js';
 // is a violation, not a skip — omitting frontmatter must never be the way
 // to escape the check.
 
-const COMPILED_ROOTS = {
+// The five agent-owned roots (#17/#23), mapped to the #20 page type each holds.
+// Exported as the single source of truth: the ingest seam test asserts node
+// writes no page into these, and must not hand-copy the list.
+export const AGENT_OWNED_ROOTS = Object.freeze({
   '05_Sources': 'source-summary',
   '10_Topics': 'topic',
   '20_Entities': 'entity',
   '40_Synthesis': 'synthesis',
   '50_Research_Answers': 'answer'
-};
+});
 
 const REQUIRED_FIELDS = ['type', 'sources', 'confidence', 'published', 'updated', 'tags'];
 const CONFIDENCE_VALUES = new Set(['high', 'medium', 'low']);
@@ -28,7 +31,7 @@ export async function lintWiki(vaultRoot) {
   const safeVaultRoot = assertInside(PROJECT_ROOT, vaultRoot);
   const violations = [];
 
-  for (const [folder, expectedType] of Object.entries(COMPILED_ROOTS)) {
+  for (const [folder, expectedType] of Object.entries(AGENT_OWNED_ROOTS)) {
     const root = path.join(safeVaultRoot, folder);
     if (!fsSync.existsSync(root)) {
       continue;

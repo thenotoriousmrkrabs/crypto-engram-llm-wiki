@@ -31,6 +31,7 @@ import {
   readSystemIndex,
   safeFileName
 } from '../src/main/obsidian/writer.js';
+import { AGENT_OWNED_ROOTS } from '../src/main/obsidian/lint.js';
 
 test('ensureVaultStructure creates required folders and templates', async () => {
   const vaultRoot = await freshVaultRoot();
@@ -430,10 +431,10 @@ async function listMarkdownFiles(root) {
   return files;
 }
 
-const AGENT_OWNED_ROOTS = ['05_Sources', '10_Topics', '20_Entities', '40_Synthesis', '50_Research_Answers'];
-
 async function assertAgentRootsEmpty(vaultRoot) {
-  for (const root of AGENT_OWNED_ROOTS) {
+  // Derived from lint's own map (#17/#22/#23) — a hand-copied list could be
+  // narrowed silently, which is the failure this assertion exists to prevent.
+  for (const root of Object.keys(AGENT_OWNED_ROOTS)) {
     assert.deepEqual(
       await listMarkdownFiles(path.join(vaultRoot, root)),
       [],

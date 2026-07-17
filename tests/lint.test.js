@@ -5,7 +5,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { PROJECT_ROOT } from '../src/main/utils/paths.js';
 import { ensureVaultStructure } from '../src/main/obsidian/writer.js';
-import { lintWiki } from '../src/main/obsidian/lint.js';
+import { lintWiki, AGENT_OWNED_ROOTS } from '../src/main/obsidian/lint.js';
 
 const RAW_RELATIVE_PATH = '00_Inbox/Manual_MD/_Raw_Drops/hip-4-report.md';
 
@@ -51,6 +51,18 @@ async function writePage(vaultRoot, relativePath, markdown) {
   await fs.mkdir(path.dirname(target), { recursive: true });
   await fs.writeFile(target, markdown, 'utf8');
 }
+
+test('AGENT_OWNED_ROOTS names exactly the five roots #17/#23 assign to the agent', async () => {
+  // Pinned deliberately. Dropping a root here would silently narrow BOTH lint's
+  // scan and the ingest seam assertion that derives from it.
+  assert.deepEqual(Object.keys(AGENT_OWNED_ROOTS), [
+    '05_Sources',
+    '10_Topics',
+    '20_Entities',
+    '40_Synthesis',
+    '50_Research_Answers'
+  ]);
+});
 
 test('lintWiki passes a well-formed compiled page', async () => {
   const vaultRoot = await fixtureVault();
