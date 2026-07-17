@@ -187,10 +187,11 @@ Implemented:
 - Mock ingestion with X, article, news, stablecoin/RWA, AI agent, and wallet examples.
 - Dedupe by URL, source ID, cleaned content hash, and title/author/date hash.
 - Source bundle support for a discovery source plus linked child source.
-- Mechanical projections only: timelines, Discord queue drafts, `index.md`, `log.md`, and `.system` indexes. Node no longer writes topic or entity pages (the #17 seam).
-- `lintWiki` frontmatter/citation contract validator (`npm run lint:wiki`).
+- Mechanical projections only: timelines, Discord queue drafts, `index.md`, `log.md`, and `.system` indexes. Node writes **no page into any agent-owned root** — no topic seeds, no entity pages, no daily briefs (#17/#22; the seam is asserted by `assertAgentRootsEmpty` in the ingest tests).
+- `lintWiki` contract validator over all five agent-owned roots (`npm run lint:wiki`): a page with no frontmatter is a `missing_frontmatter` violation, never a skip (#23).
 - `/compile` command definition (`.claude/commands/compile.md`).
-- Tests for vault creation, dedupe, raw preservation, note writing safety, raw drops, source bundles, projections, lint contract, and path traversal rejection.
+- Stale v1 pages (6 topic seeds, 7 entity pages, 1 daily brief) archived under `90_Archive/Legacy_V1_Pages/`.
+- Tests for vault creation, dedupe, raw preservation, note writing safety, raw drops, source bundles, projections, lint contract (red and green paths), and path traversal rejection.
 
 Not yet done:
 
@@ -289,9 +290,9 @@ Still open:
 ## Recommended Next Tasks
 
 1. Run the first `/compile` pass and verify `05_Sources/` pages with `npm run lint:wiki`.
-2. Archive the stale v1 topic/entity pages still sitting in the real vault (inert — lint skips pages without `type`).
-3. `git init` and an initial commit; the project is not yet a git repo.
-4. Decide the Web Clipper operating model: save directly inside the vault or copy from an external folder.
-5. Add a `npm run doctor` / `vault:health` command to verify vault paths, raw-only inbox rules, and index consistency.
-6. Add a CLI wrapper for Hermes-oriented commands, such as `ingest`, `brief`, `queue`, and `status`.
+2. Collapse the four hand-synced topic lists (`TOPIC_RULES`, `TOPICS`, `REQUIRED_VAULT_FOLDERS`, `config/topics.yaml`) — seven of thirteen classifier topics silently fall back to the catch-all.
+3. Delete the speculative MCP adapter stubs, the inert OpenTrade adapter, the unimported `src/main/index.js` barrel and its zero-caller exports, and `templates.js` (ships lint-forbidden fields).
+4. Refresh the stale v1 docs (`docs/HANDOFF.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`) to the decided design.
+5. Decide the Web Clipper operating model: save directly inside the vault or copy from an external folder.
+6. Add a `npm run doctor` / `vault:health` command to verify vault paths, raw-only inbox rules, and index consistency.
 7. Prepare adapter contracts for future MCP integration without adding network calls yet.
