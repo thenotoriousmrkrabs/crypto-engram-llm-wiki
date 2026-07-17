@@ -8,9 +8,8 @@ import { walkMarkdownFiles } from './writer.js';
 // The contract seam for agent-compiled wiki pages (DECISIONS #17/#20/#23).
 // Deterministic: validates structure and citations, never prose.
 // Presence in an agent-owned root IS the contract (#23): every page there
-// must carry the six fields, whoever wrote it. A page with no frontmatter
-// is a violation, not a skip — omitting frontmatter must never be the way
-// to escape the check.
+// must carry the six fields, whoever wrote it. Absent frontmatter is a
+// violation, not a skip.
 
 // The five agent-owned roots (#17/#23), mapped to the #20 page type each holds.
 // Exported as the single source of truth: the ingest seam test asserts node

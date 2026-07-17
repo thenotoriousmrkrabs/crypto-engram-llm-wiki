@@ -10,7 +10,7 @@ Overriding goal: retrieval fetches the **most accurate answer for the fewest tok
 
 This version is not a content autoposter, trading bot, browser automation system, or full RAG system.
 
-Design decisions are recorded in `docs/DECISIONS.md` (#1–#21) and are authoritative over this file where they conflict.
+Design decisions are recorded in `docs/DECISIONS.md` (#1–#23) and are authoritative over this file where they conflict.
 
 ## Current Architecture
 
@@ -124,6 +124,9 @@ Legacy scaffolding from the first version was archived under:
 90_Archive/Legacy_Scaffold/
 90_Archive/Legacy_V1_Folders/     <- .ingestion, 10_Daily_Briefs, 40_Narrative_Briefs,
                                      50_Content_Drafts, 60_Prompt_Rules, 70_Performance
+90_Archive/Legacy_V1_Pages/       <- the 6 node-written topic seeds, 7 node-written
+                                     entity pages, and 1 node-written daily brief,
+                                     archived when the #17 seam was cut
 ```
 
 ## Compile Rules
@@ -248,7 +251,7 @@ The five canonical roles map to themselves (`needs-triage`, `needs-info`, `ready
 
 ### Domain docs
 
-Single-context. Glossary in `CONTEXT.md`; **ADRs are consolidated in `docs/DECISIONS.md` (#1–#21), not `docs/adr/`**. See `docs/agents/domain.md`.
+Single-context. Glossary in `CONTEXT.md`; **ADRs are consolidated in `docs/DECISIONS.md` (#1–#23), not `docs/adr/`**. See `docs/agents/domain.md`.
 
 ## Safety Constraints
 

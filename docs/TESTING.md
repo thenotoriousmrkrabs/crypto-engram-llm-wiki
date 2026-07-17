@@ -28,12 +28,12 @@ npm run ingest:mock
 
 Expected:
 
-- Raw source files are written under `00_Inbox`.
-- Topic pages are updated under `10_Topics`.
-- Entity pages are updated under `20_Entities` when entities are clear.
+- Raw evidence is written under `00_Inbox`.
 - Timelines are updated under `30_Timelines`.
 - Discord queue drafts are written under `60_Discord_Queues`.
+- `index.md` rows and a `log.md` line are written.
 - `.system` indexes are updated.
+- **No page appears in any agent-owned root** — `05_Sources`, `10_Topics`, `20_Entities`, `40_Synthesis`, `50_Research_Answers` (#17/#22). The topic folders exist but stay empty until `/compile` runs.
 
 Run it a second time:
 
@@ -44,25 +44,29 @@ npm run ingest:mock
 Expected:
 
 - Items should be skipped as duplicates.
-- Topic pages, timelines, and queue files should not duplicate entries.
+- Timelines and queue files should not duplicate entries.
 
-## Generate Daily Brief
+Note: a re-run on an already-ingested vault proves **dedupe**, not the seam. Dedupe
+short-circuits before the write path, so such a run cannot show that node writes no
+page — it never reaches the code that would. The seam is proven by the test suite,
+which ingests fresh items into a fresh vault and then asserts the agent-owned roots
+are empty.
+
+## Validate The Compiled-Page Contract
 
 Run:
 
 ```sh
-npm run brief:daily
+npm run lint:wiki
 ```
 
 Expected:
 
-- A daily brief is written to:
-
-```text
-vault/Content_Intelligence_Vault/40_Synthesis/YYYY-MM-DD-daily-brief.md
-```
-
-- The brief should read from `.system`, `10_Topics`, `30_Timelines`, and `60_Discord_Queues`.
+- Every page in an agent-owned root carries the six #20 frontmatter fields, and every
+  `sources[]` entry resolves to an existing file under `00_Inbox`.
+- A page with no frontmatter is a `missing_frontmatter` violation, never a skip (#23).
+- Green over an empty vault is vacuous — it means nothing is compiled yet, not that
+  the contract holds.
 
 ## Run Automated Tests
 
@@ -72,13 +76,8 @@ Run:
 npm run test
 ```
 
-Expected:
-
-```text
-tests 12
-pass 12
-fail 0
-```
+Expected: all green, `fail 0`. (The count grows as coverage is added; it is not a
+fixture to match. At the time of writing: 26.)
 
 ## Outputs To Inspect
 
@@ -118,10 +117,10 @@ Inspect machine-readable indexes:
 vault/Content_Intelligence_Vault/.system
 ```
 
-Inspect daily briefs:
+Inspect the retrieval entry point:
 
 ```text
-vault/Content_Intelligence_Vault/40_Synthesis
+vault/Content_Intelligence_Vault/index.md
 ```
 
 ## Raw-Only Inbox Check

@@ -7,7 +7,7 @@ How the engineering skills should consume this repo's domain documentation when 
 This repo is **single-context**. There is no `CONTEXT-MAP.md` and no monorepo split.
 
 - **`CONTEXT.md`** at the repo root — the domain glossary (raw evidence, wiki page, compile, ingest, `sources[]`).
-- **`docs/DECISIONS.md`** — **this repo's ADRs.** All decisions live in ONE numbered file (#1–#21), not as separate files under `docs/adr/`. **There is no `docs/adr/` directory and its absence is not a signal that this repo has no recorded decisions.** Read the decisions touching your area before proposing changes. Each entry has Decision / Reason / Status.
+- **`docs/DECISIONS.md`** — **this repo's ADRs.** All decisions live in ONE numbered file (#1–#23), not as separate files under `docs/adr/`. **There is no `docs/adr/` directory and its absence is not a signal that this repo has no recorded decisions.** Read the decisions touching your area before proposing changes. Each entry has Decision / Reason / Status.
 
 Both files exist and are load-bearing — they were produced by a `/grill-with-docs` session and drove the current architecture. Read them; do not treat this repo as undocumented.
 
@@ -22,7 +22,7 @@ This repo (single-context, ADRs consolidated into one file):
 ├── CONTEXT.md                 ← domain glossary
 ├── CLAUDE.md                  ← project context, safety constraints, compile rules
 ├── docs/
-│   ├── DECISIONS.md           ← the ADRs (#1-#21) — read these
+│   ├── DECISIONS.md           ← the ADRs (#1-#23) — read these
 │   ├── ARCHITECTURE.md
 │   └── agents/                ← this config
 ├── src/main/                  ← ingestion, obsidian (writer/wiki/lint), adapters

@@ -2,7 +2,9 @@
 
 Local-first source ingestion scaffold for a future Hermes Agent operated crypto and AI intelligence vault.
 
-V1 focuses only on source ingestion, raw evidence preservation, dedupe, rule-based classification, LLM-wiki projections, and daily brief generation. It does not publish content, trade, move funds, run browser automation, call paid APIs, or perform real MCP/API integration.
+The vault is an **LLM-Wiki** (DECISION #9). Node ingests raw evidence and writes only mechanical artifacts; an agent compiles the wiki pages, each citing `sources[]` with a `confidence`. Node writes no page into an agent-owned root (#17/#22). It does not publish content, trade, move funds, run browser automation, call paid APIs, or perform real MCP/API integration.
+
+Design decisions live in `docs/DECISIONS.md` (#1–#23) and are authoritative over this file.
 
 ## Architecture
 
@@ -15,7 +17,8 @@ V1 focuses only on source ingestion, raw evidence preservation, dedupe, rule-bas
 The runtime flow is:
 
 ```text
-source adapter -> raw source -> SourceItem -> dedupe -> classify -> topic/entity/timeline/queue projections -> system indexes -> daily brief
+node  (free, continuous):  source adapter -> raw evidence -> SourceItem -> dedupe -> classify -> timeline/queue projections -> system indexes -> index.md + log.md
+agent (scheduled, /compile): raw evidence -> analyze -> source-summaries, topics, entities with sources[] + confidence -> lint:wiki
 ```
 
 Design rule:
@@ -55,7 +58,7 @@ npm run setup-vault
 npm run ingest:mock
 npm run ingest:manual
 npm run ingest:web-clipper
-npm run brief:daily
+npm run lint:wiki
 npm run test
 ```
 
@@ -93,21 +96,17 @@ This creates raw source files and wiki projections for:
 
 Running mock ingestion again should skip duplicates using `.system/dedupe-index.json`.
 
-## Daily Brief
+## Validate The Compiled-Page Contract
 
 Run:
 
 ```sh
-npm run brief:daily
+npm run lint:wiki
 ```
 
-The generated brief is written to:
+Every page in an agent-owned root must carry the six frontmatter fields of #20, and every `sources[]` entry must resolve to a real file under `00_Inbox`. A page with no frontmatter is a violation, never a skip (#23).
 
-```text
-vault/Content_Intelligence_Vault/40_Synthesis/YYYY-MM-DD-daily-brief.md
-```
-
-V1 reads from `.system` indexes, `10_Topics`, `30_Timelines`, and `60_Discord_Queues`. Hermes/LLM summarization can improve this later.
+Synthesis and daily briefs are agent-compiled via `/compile` (#17) — node does not generate them.
 
 ## Future Hermes Integration Plan
 
@@ -117,7 +116,7 @@ Hermes will later call local commands or equivalent module functions to:
 - ingest opennews
 - ingest opentwitter
 - ingest daily-news
-- generate daily brief
+- compile raw evidence into wiki pages
 - draft content idea from selected note
 
 Hermes should remain the orchestrator/operator. This project stays as the local ingestion and vault-writing substrate.
