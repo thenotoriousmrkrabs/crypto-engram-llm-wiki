@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { PROJECT_ROOT } from '../src/main/utils/paths.js';
 import { loadFirehoseConfig } from '../src/main/firehose/config.js';
+import { storeItems, readItem, hasItem, itemId } from '../src/main/firehose/cold-store.js';
 import { fetchLatestNews, fetchOpenNewsJson } from '../src/main/firehose/opennews-client.js';
 import { mapArticleToSourceItem } from '../src/main/firehose/opennews-mapper.js';
 import { normalizeSourceItem } from '../src/main/adapters/source-item.js';
@@ -173,4 +178,55 @@ test('OpenNewsMCPAdapter composes client and mapper behind the adapter contract'
   assert.equal(items[0].title, 'Hyperliquid lists HIP-4 vaults');
   assert.ok(items[0].dedupe_key.length > 0);
   assert.equal(items[0].raw.aiRating.grade, 'A');
+});
+
+async function freshColdStoreRoot() {
+  const root = path.join(PROJECT_ROOT, '.tmp-tests', crypto.randomUUID(), 'firehose');
+  await fs.mkdir(root, { recursive: true });
+  return root;
+}
+
+test('cold store persists items once and is idempotent on re-store', async () => {
+  const root = await freshColdStoreRoot();
+  const items = [
+    { source_id: 'n1', title: 'one' },
+    { source_id: 'n2', title: 'two' },
+    { source_id: 'n3', title: 'three' }
+  ];
+
+  const first = await storeItems({ root, source: 'opennews', items });
+  assert.deepEqual(first.stored, ['n1', 'n2', 'n3']);
+  assert.deepEqual(first.skipped, []);
+
+  const again = await storeItems({ root, source: 'opennews', items });
+  assert.deepEqual(again.stored, []);
+  assert.deepEqual(again.skipped, ['n1', 'n2', 'n3']);
+
+  const files = (await fs.readdir(path.join(root, 'opennews'))).sort();
+  assert.deepEqual(files, ['n1.json', 'n2.json', 'n3.json']);
+});
+
+test('cold store round-trips an item by id and reports presence', async () => {
+  const root = await freshColdStoreRoot();
+  const item = { source_id: 'a9', title: 'HIP-4', raw: { aiRating: { score: 91 } } };
+  await storeItems({ root, source: 'opennews', items: [item] });
+
+  assert.equal(hasItem({ root, source: 'opennews', id: 'a9' }), true);
+  assert.equal(hasItem({ root, source: 'opennews', id: 'missing' }), false);
+  assert.deepEqual(await readItem({ root, source: 'opennews', id: 'a9' }), item);
+  assert.equal(await readItem({ root, source: 'opennews', id: 'missing' }), null);
+});
+
+test('cold store hashes unsafe ids and rejects id-less items', async () => {
+  const root = await freshColdStoreRoot();
+  const evil = { source_id: '../escape', title: 'bad' };
+  const { stored } = await storeItems({ root, source: 'opennews', items: [evil] });
+  assert.deepEqual(stored, ['../escape']);
+
+  const files = await fs.readdir(path.join(root, 'opennews'));
+  assert.equal(files.length, 1);
+  assert.match(files[0], /^[0-9a-f]{32}\.json$/);
+  assert.deepEqual(await readItem({ root, source: 'opennews', id: '../escape' }), evil);
+
+  assert.throws(() => itemId({ title: 'no id' }), /source_id or dedupe_key/);
 });
