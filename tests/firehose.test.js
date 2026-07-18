@@ -6,6 +6,7 @@ import crypto from 'node:crypto';
 import { PROJECT_ROOT } from '../src/main/utils/paths.js';
 import { loadFirehoseConfig } from '../src/main/firehose/config.js';
 import { storeItems, readItem, hasItem, itemId } from '../src/main/firehose/cold-store.js';
+import { runPullJob } from '../src/main/firehose/pull-job.js';
 import { fetchLatestNews, fetchOpenNewsJson } from '../src/main/firehose/opennews-client.js';
 import { mapArticleToSourceItem } from '../src/main/firehose/opennews-mapper.js';
 import { normalizeSourceItem } from '../src/main/adapters/source-item.js';
@@ -229,4 +230,34 @@ test('cold store hashes unsafe ids and rejects id-less items', async () => {
   assert.deepEqual(await readItem({ root, source: 'opennews', id: '../escape' }), evil);
 
   assert.throws(() => itemId({ title: 'no id' }), /source_id or dedupe_key/);
+});
+
+test('runPullJob stores new items and returns nothing on the second tick', async () => {
+  const root = await freshColdStoreRoot();
+  const adapter = {
+    source: 'opennews',
+    fetch: async () => [
+      { source_id: 'p1', title: 'first' },
+      { source_id: 'p2', title: 'second' }
+    ]
+  };
+
+  const first = await runPullJob({ adapter, coldStoreRoot: root });
+  assert.equal(first.source, 'opennews');
+  assert.equal(first.fetched, 2);
+  assert.equal(first.skipped, 0);
+  assert.deepEqual(first.newItems.map((item) => item.source_id), ['p1', 'p2']);
+
+  const second = await runPullJob({ adapter, coldStoreRoot: root });
+  assert.equal(second.fetched, 2);
+  assert.equal(second.skipped, 2);
+  assert.deepEqual(second.newItems, []);
+
+  // A later tick with one fresh item surfaces only that item.
+  adapter.fetch = async () => [
+    { source_id: 'p2', title: 'second' },
+    { source_id: 'p3', title: 'third' }
+  ];
+  const third = await runPullJob({ adapter, coldStoreRoot: root });
+  assert.deepEqual(third.newItems.map((item) => item.source_id), ['p3']);
 });
