@@ -179,7 +179,7 @@ Answer from `index.md` → `05_Sources` summaries. **Open the raw via `sources[]
 
 Implemented:
 
-- Node.js ESM project with zero npm dependencies.
+- Node.js ESM project; sole dependency `discord.js` (approved, issue #3) — everything else, including the 6551 pull, is dependency-free native `fetch`.
 - Obsidian vault scaffold and template creation.
 - Source adapter stubs for X bookmarks, OpenTwitter MCP, OpenNews MCP, Daily News MCP, Web Clipper folder, Manual Markdown folder, and OpenTrade market-readonly.
 - `SourceItem` normalization.

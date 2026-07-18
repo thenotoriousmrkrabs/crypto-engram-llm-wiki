@@ -15,6 +15,8 @@ import { fetchLatestNews, fetchOpenNewsJson } from '../src/main/firehose/opennew
 import { mapArticleToSourceItem } from '../src/main/firehose/opennews-mapper.js';
 import { normalizeSourceItem } from '../src/main/adapters/source-item.js';
 import { OpenNewsMCPAdapter } from '../src/main/adapters/opennews-mcp-adapter.js';
+import { fetchUserTweets } from '../src/main/firehose/opentwitter-client.js';
+import { OpenTwitterMCPAdapter } from '../src/main/adapters/open-twitter-mcp-adapter.js';
 
 const SAMPLE_ARTICLE = {
   id: 987654,
@@ -360,4 +362,63 @@ test('promote moves exactly one tapped item from cold store into 00_Inbox, dedup
     promoteItem({ vaultRoot, source: 'opennews', id: 'nope', coldStoreRoot: coldRoot }),
     /cold store has no item opennews:nope/
   );
+});
+
+test('fetchUserTweets POSTs the verified twitter_user_tweets contract', async () => {
+  const { impl, calls } = fakeFetchReturning({ data: [{ id: 't1', text: 'gm' }] });
+  const tweets = await fetchUserTweets({ token: 'token-6551', username: 'hyperliquidr', maxResults: 5, fetchImpl: impl });
+
+  assert.deepEqual(tweets, [{ id: 't1', text: 'gm' }]);
+  const url = new URL(calls[0].url);
+  assert.equal(url.pathname, '/open/twitter_user_tweets');
+  assert.equal(calls[0].options.method, 'POST');
+  assert.equal(calls[0].options.headers.Authorization, 'Bearer token-6551');
+  assert.deepEqual(JSON.parse(calls[0].options.body), {
+    username: 'hyperliquidr',
+    maxResults: 5,
+    product: 'Latest',
+    includeReplies: false,
+    includeRetweets: false
+  });
+
+  await assert.rejects(fetchUserTweets({ token: 't', username: ' ', fetchImpl: impl }), /username/);
+  const denied = fakeFetchReturning({}, { status: 403 });
+  await assert.rejects(
+    fetchUserTweets({ token: 't', username: 'x', fetchImpl: denied.impl }),
+    /6551 request failed: 403/
+  );
+});
+
+test('OpenTwitterMCPAdapter maps watched accounts to SourceItems; empty watch is silent', async () => {
+  const tweet = {
+    id: '90001',
+    text: 'HIP-4 vaults are live',
+    createdAt: '2026-07-17T09:00:00.000Z',
+    userScreenName: 'HyperliquidR',
+    retweetCount: 12,
+    favoriteCount: 88
+  };
+  const requested = [];
+  const adapter = new OpenTwitterMCPAdapter({
+    token: 'token-6551',
+    usernames: ['HyperliquidR'],
+    fetchTweets: async ({ username }) => {
+      requested.push(username);
+      return [tweet];
+    }
+  });
+
+  const items = await adapter.fetch();
+  assert.deepEqual(requested, ['HyperliquidR']);
+  assert.equal(items.length, 1);
+  assert.equal(items[0].source, 'x_watchlist');
+  assert.equal(items[0].source_id, '90001');
+  assert.equal(items[0].url, 'https://x.com/HyperliquidR/status/90001');
+  assert.equal(items[0].author_handle, 'HyperliquidR');
+  assert.equal(items[0].created_at, '2026-07-17T09:00:00.000Z');
+  assert.equal(items[0].raw.favoriteCount, 88);
+  assert.ok(items[0].dedupe_key.length > 0);
+
+  const idle = new OpenTwitterMCPAdapter({ token: 'token-6551' });
+  assert.deepEqual(await idle.fetch(), []);
 });
