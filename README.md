@@ -4,7 +4,7 @@ Local-first source ingestion scaffold for a future Hermes Agent operated crypto 
 
 The vault is an **LLM-Wiki** (DECISION #9). Node ingests raw evidence and writes only mechanical artifacts; an agent compiles the wiki pages, each citing `sources[]` with a `confidence`. Node writes no page into an agent-owned root (#17/#22). It does not publish content, trade, move funds, run browser automation, call paid APIs, or perform real MCP/API integration.
 
-Design decisions live in `docs/DECISIONS.md` (#1–#23) and are authoritative over this file.
+Design decisions live in `docs/DECISIONS.md` (#1–#25) and are authoritative over this file.
 
 ## Architecture
 
