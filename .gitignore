@@ -1,7 +1,8 @@
 node_modules/
 .DS_Store
 .tmp-tests/
-firehose/
+# Cold-store data at the repo root only — src/main/firehose is source code.
+/firehose/
 
 # Secrets — real tokens live only here; .env.example carries placeholders.
 .env
