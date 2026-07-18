@@ -7,6 +7,7 @@ import { PROJECT_ROOT } from '../src/main/utils/paths.js';
 import { loadFirehoseConfig } from '../src/main/firehose/config.js';
 import { storeItems, readItem, hasItem, itemId } from '../src/main/firehose/cold-store.js';
 import { runPullJob } from '../src/main/firehose/pull-job.js';
+import { formatItemMessage, parseMarker, postItems } from '../src/main/firehose/discord-poster.js';
 import { fetchLatestNews, fetchOpenNewsJson } from '../src/main/firehose/opennews-client.js';
 import { mapArticleToSourceItem } from '../src/main/firehose/opennews-mapper.js';
 import { normalizeSourceItem } from '../src/main/adapters/source-item.js';
@@ -260,4 +261,38 @@ test('runPullJob stores new items and returns nothing on the second tick', async
   ];
   const third = await runPullJob({ adapter, coldStoreRoot: root });
   assert.deepEqual(third.newItems.map((item) => item.source_id), ['p3']);
+});
+
+test('discord poster formats one message per item with a parseable marker', async () => {
+  const sent = [];
+  const channel = { send: async (content) => sent.push(content) };
+  const items = [
+    normalizeSourceItem(mapArticleToSourceItem(SAMPLE_ARTICLE), { source: 'opennews' }),
+    normalizeSourceItem({ source: 'opennews', source_id: 'n2', title: 'Second item' }, { source: 'opennews' })
+  ];
+
+  const { posted } = await postItems({ channel, items });
+
+  assert.equal(posted, 2);
+  assert.equal(sent.length, 2);
+  assert.match(sent[0], /Hyperliquid lists HIP-4 vaults/);
+  assert.match(sent[0], /https:\/\/example\.com\/hip-4/);
+  assert.match(sent[0], /`opennews:987654`/);
+  assert.match(sent[0], /AI 91 A long/);
+  assert.deepEqual(parseMarker(sent[0]), { source: 'opennews', id: '987654' });
+  assert.deepEqual(parseMarker(sent[1]), { source: 'opennews', id: 'n2' });
+  assert.equal(parseMarker('no marker here'), null);
+});
+
+test('discord poster stays under the message length limit', () => {
+  const item = {
+    source: 'opennews',
+    source_id: 'long1',
+    title: 'T'.repeat(3000),
+    url: 'https://example.com',
+    tags: []
+  };
+  const content = formatItemMessage(item);
+  assert.ok(content.length <= 2000);
+  assert.match(content, /…$/);
 });
