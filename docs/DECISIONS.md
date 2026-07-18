@@ -455,3 +455,23 @@ Settles the firehose design that #7/#8 deferred, using the actual 6551 tool/endp
 Status:
 
 Accepted (design). Build deferred to the `/request-refactor-plan` breakdown: the relay (network line + WebSocket client + dedup + Discord routing) sequenced as tiny commits, operational failure-modes (reconnect, 6551 downtime, token expiry, Discord rate-limits, dedup window) addressed there. Signal-channel score threshold and whether opentwitter gets its own raw/signal pair are post-traffic tunables. daily-news adapter remains unbuilt (free-fallback note only).
+
+### #25 Addendum — Build Shape (issue #3): Scheduled Pull Over Live WebSocket; Bot + Promote Mechanics
+
+Decision:
+
+The first firehose build (issue #3) arrives by **scheduled pull, not live WebSocket**, and interaction is a **discord.js gateway bot** with a 💾 tap-to-save:
+
+- **Scheduled over live.** Delivery to Discord is plumbing (HTTP, zero LLM tokens) either way; tokens are spent only at compile-on-promote, which the human tap gates — so live buys nothing on the overriding token goal. Scheduled clumps arrivals, nudging batched promotes → batched compiles that amortize per-call overhead. It also avoids the persistent socket, reconnect/backoff, and the raw-then-scored async double-hit entirely: a failed tick just catches up next tick. Default interval 20 min (`FIREHOSE_PULL_INTERVAL_MINUTES`), modest so pulls stay under the ~100-row `news_search` cap. Live remains a per-channel upgrade **only** if a trading-latency source ever appears; because arrival is decoupled from the bot, that swap touches neither promote nor tap-to-save.
+- **Bot, not webhook**, because tap-to-save must *receive* reactions; `discord.js` is the sole approved dependency (recorded in CLAUDE.md). The bot is a thin shell over tested functions; only its live Discord/timer I/O is smoke-tested.
+- **Marker-based promote.** Every posted message embeds a `` `source:id` `` line; the reaction handler parses it and promotes exactly that cold-store item through the existing ingestion pipeline into `00_Inbox/OpenNews` — the only firehose → wiki crossing (#12), deduped and logged like any ingest. Markers survive bot restarts (no in-memory message map).
+- **Single reading channel first.** The raw/signal two-channel split is deferred until real traffic justifies it; `aiRating` (score/grade/signal) is preserved under `raw`, so adding score-gating later needs no rework.
+- The 6551 REST contract was **verified against the opennews-mcp server source** (Bearer auth, `GET /open/news_search`, `{ data, total }`), superseding the README-level guesses noted in `docs/sources/6551-mcp-reference.md`.
+
+Reason:
+
+Recorded so the scheduled-vs-live choice reads as deliberate token/workload economics, not a temporary shortcut — and so nobody "upgrades" to the WebSocket relay without a trading-latency case.
+
+Status:
+
+Accepted; built on branch `feat/opennews-firehose` (issue #3, commits 1–14).

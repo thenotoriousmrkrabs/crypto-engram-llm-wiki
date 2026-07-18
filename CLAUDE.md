@@ -10,7 +10,7 @@ Overriding goal: retrieval fetches the **most accurate answer for the fewest tok
 
 This version is not a content autoposter, trading bot, browser automation system, or full RAG system.
 
-Design decisions are recorded in `docs/DECISIONS.md` (#1–#24) and are authoritative over this file where they conflict.
+Design decisions are recorded in `docs/DECISIONS.md` (#1–#25) and are authoritative over this file where they conflict.
 
 ## Current Architecture
 
@@ -196,10 +196,14 @@ Implemented:
 - Stale v1 pages (6 topic seeds, 7 entity pages, 1 daily brief) archived under `90_Archive/Legacy_V1_Pages/`.
 - Tests for vault creation, dedupe, raw preservation, note writing safety, raw drops, source bundles, projections, lint contract (red and green paths), and path traversal rejection.
 
+Implemented since (issue #3, #25 addendum):
+
+- The opennews firehose: real 6551 REST pull (`src/main/firehose/`), cold store under `firehose/<source>/` outside the vault, scheduled pull job, Discord poster with `source:id` markers, 💾 tap-to-save promote through the existing pipeline into `00_Inbox/OpenNews`, and the thin `bot:start` shell. `discord.js` is the sole approved dependency; tests fake all network/Discord I/O.
+
 Not yet done:
 
-- No source-summary pages compiled yet — `05_Sources/` exists but is empty until the first `/compile` run.
-- Firehose cold-store wiring, Discord promote-on-save and the two channels (#12/#13/#21), MCP adapters (#7), GBrain/RAG (#6) are all deferred.
+- The first `/compile` has run (11 pages); later compiles are on the agent clock as raw accumulates.
+- opentwitter pull adapter (same pattern), the raw/signal channel split, live WebSocket push, X-bookmarks fetch (#7), GBrain/RAG (#6) remain deferred.
 
 Important implementation files:
 
@@ -251,7 +255,7 @@ The five canonical roles map to themselves (`needs-triage`, `needs-info`, `ready
 
 ### Domain docs
 
-Single-context. Glossary in `CONTEXT.md`; **ADRs are consolidated in `docs/DECISIONS.md` (#1–#24), not `docs/adr/`**. See `docs/agents/domain.md`.
+Single-context. Glossary in `CONTEXT.md`; **ADRs are consolidated in `docs/DECISIONS.md` (#1–#25), not `docs/adr/`**. See `docs/agents/domain.md`.
 
 ## Safety Constraints
 
@@ -273,9 +277,8 @@ Single-context. Glossary in `CONTEXT.md`; **ADRs are consolidated in `docs/DECIS
 - Trading, swaps, leverage, order placement, or wallet actions.
 - Wallet signing or token transfers.
 - Browser automation.
-- Real MCP/API calls.
-- Paid API assumptions.
-- Discord API sending.
+- Live WebSocket push (#25 addendum: per-channel upgrade only if a trading-latency source appears).
+- MCP server integration beyond the 6551 REST pull (the firehose talks REST directly; the MCP servers stay a Hermes pull surface).
 - GBrain/RAG/embeddings.
 - Full content production pipelines.
 

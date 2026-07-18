@@ -68,6 +68,31 @@ Expected:
 - Green over an empty vault is vacuous — it means nothing is compiled yet, not that
   the contract holds.
 
+## Firehose (opennews)
+
+One manual pull tick into the cold store (needs `OPENNEWS_TOKEN` in `.env`):
+
+```sh
+npm run ingest:opennews
+```
+
+Expected:
+
+- Items land under `firehose/opennews/` (outside the vault, gitignored) — **not** in `00_Inbox`.
+- A second run reports the same items as already seen (the cold store is the seen-set).
+- The wiki gains nothing until a promote (#12).
+
+The bot (`npm run bot:start`) is a thin shell over tested functions and is
+**smoke-tested live, not unit-tested**: start it with a filled `.env`, wait for a
+tick to post items to the channel, tap 💾 on one, and confirm the reply names a
+new raw file under `00_Inbox/OpenNews/`. Requires the Message Content intent in
+the Discord developer portal. Ctrl-C must log the bot out cleanly.
+
+Everything below the shell — config, 6551 client, mapper, adapter, cold store,
+pull job, poster/marker, promote — is covered by `tests/firehose.test.js` with
+injected fakes; the suite never touches the network or Discord and needs no
+tokens.
+
 ## Run Automated Tests
 
 Run:
@@ -77,7 +102,7 @@ npm run test
 ```
 
 Expected: all green, `fail 0`. (The count grows as coverage is added; it is not a
-fixture to match. At the time of writing: 26.)
+fixture to match. At the time of writing: 45.)
 
 ## Outputs To Inspect
 

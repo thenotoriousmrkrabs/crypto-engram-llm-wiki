@@ -2,7 +2,9 @@
 
 Local-first source ingestion scaffold for a future Hermes Agent operated crypto and AI intelligence vault.
 
-The vault is an **LLM-Wiki** (DECISION #9). Node ingests raw evidence and writes only mechanical artifacts; an agent compiles the wiki pages, each citing `sources[]` with a `confidence`. Node writes no page into an agent-owned root (#17/#22). It does not publish content, trade, move funds, run browser automation, call paid APIs, or perform real MCP/API integration.
+The vault is an **LLM-Wiki** (DECISION #9). Node ingests raw evidence and writes only mechanical artifacts; an agent compiles the wiki pages, each citing `sources[]` with a `confidence`. Node writes no page into an agent-owned root (#17/#22). It does not publish content, trade, move funds, or run browser automation.
+
+The **firehose** (#25, issue #3) is the one real network surface: a scheduled pull from the 6551 opennews API into a cold store outside the vault, posted to a Discord channel by a tap-to-save bot. Only items the human promotes (💾) cross into `00_Inbox` (#12).
 
 Design decisions live in `docs/DECISIONS.md` (#1–#25) and are authoritative over this file.
 
@@ -58,9 +60,15 @@ npm run setup-vault
 npm run ingest:mock
 npm run ingest:manual
 npm run ingest:web-clipper
+npm run ingest:opennews
+npm run bot:start
 npm run lint:wiki
 npm run test
 ```
+
+`ingest:opennews` and `bot:start` read `OPENNEWS_TOKEN` (and the bot also
+`DISCORD_BOT_TOKEN` + `DISCORD_CHANNEL_ID`) from `.env` — copy `.env.example`
+and fill in real values; `.env` is gitignored and never committed.
 
 Manual Markdown raw drops go in:
 
@@ -121,13 +129,20 @@ Hermes will later call local commands or equivalent module functions to:
 
 Hermes should remain the orchestrator/operator. This project stays as the local ingestion and vault-writing substrate.
 
-## Future MCP Integration Plan
+## The Firehose (opennews, #25)
 
-- `opennews-mcp` = structured crypto/news feed
-- `opentwitter-mcp` = X/KOL/topic monitoring
-- `daily-news` = lightweight digest
-- `opentrade` = disabled initially; only read-only market/token data later
-- xAI/Grok OAuth X Search = optional ad hoc X search
+```text
+timer (in the bot) -> pull 6551 /open/news_search -> cold store firehose/opennews/
+   -> post new items to the Discord channel -> human taps 💾 on a message
+   -> promote that one item -> 00_Inbox/OpenNews -> /compile (unchanged)
+```
+
+- The cold store lives **outside** the vault (`firehose/`, gitignored): stored, never indexed, never retrieved (#13). Its id set is the pull dedupe.
+- Arrival is **scheduled pull** (default every 20 min), not a live WebSocket — deliberate (#25 addendum): delivery is token-free plumbing either way, clumped arrivals nudge batched compiles, and a failed tick just catches up next tick.
+- Each Discord message embeds a `` `opennews:<id>` `` marker; the 💾 reaction resolves it back to the cold-store item and promotes exactly that item. Promote is the **only** firehose → wiki crossing (#12).
+- The bot needs the **Message Content intent** enabled in the Discord developer portal, and `discord.js` is the project's sole approved dependency (recorded in CLAUDE.md).
+
+Source status: `opennews` = **real** (REST pull). `opentwitter` = pull adapter planned on the same pattern; live watch-push deferred to Hermes. `daily-news` = **dropped** (redundant under the premium token; free fallback only — `docs/sources/6551-mcp-reference.md`). `opentrade` = disabled, read-only later at most.
 
 ## Intentionally Not Built Yet
 
@@ -141,8 +156,8 @@ Hermes should remain the orchestrator/operator. This project stays as the local 
 - Deleting notes
 - Rewriting the full vault
 - Embeddings or full RAG
-- Paid API assumptions
-- Real external MCP/API calls
+- Live WebSocket push (per-channel upgrade only if a trading-latency source appears, #25)
+- The raw + signal two-channel split (single channel first; aiRating is preserved in raw, so score-gating needs no rework)
 
 ## Safety
 
