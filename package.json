@@ -11,6 +11,7 @@
     "ingest:mock": "node scripts/ingest-mock.js",
     "ingest:opennews": "node --env-file-if-exists=.env scripts/ingest-opennews.js",
     "lint:wiki": "node scripts/lint-wiki.js",
+    "bot:start": "node --env-file-if-exists=.env scripts/bot-start.js",
     "test": "node --test tests/*.test.js"
   },
   "engines": {
