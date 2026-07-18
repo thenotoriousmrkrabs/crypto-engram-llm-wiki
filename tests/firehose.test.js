@@ -8,6 +8,7 @@ import { loadFirehoseConfig } from '../src/main/firehose/config.js';
 import { storeItems, readItem, hasItem, itemId } from '../src/main/firehose/cold-store.js';
 import { runPullJob } from '../src/main/firehose/pull-job.js';
 import { formatItemMessage, parseMarker, postItems } from '../src/main/firehose/discord-poster.js';
+import { runPullAndPost } from '../src/main/firehose/pull-and-post.js';
 import { fetchLatestNews, fetchOpenNewsJson } from '../src/main/firehose/opennews-client.js';
 import { mapArticleToSourceItem } from '../src/main/firehose/opennews-mapper.js';
 import { normalizeSourceItem } from '../src/main/adapters/source-item.js';
@@ -295,4 +296,30 @@ test('discord poster stays under the message length limit', () => {
   const content = formatItemMessage(item);
   assert.ok(content.length <= 2000);
   assert.match(content, /…$/);
+});
+
+test('pull-and-post posts each new item once and nothing on a re-tick', async () => {
+  const root = await freshColdStoreRoot();
+  const adapter = new OpenNewsMCPAdapter({
+    token: 'token-6551',
+    fetchLatest: async () => [SAMPLE_ARTICLE]
+  });
+  const sent = [];
+  const channel = { send: async (content) => sent.push(content) };
+
+  const first = await runPullAndPost({ adapter, coldStoreRoot: root, channel });
+  assert.equal(first.posted, 1);
+  assert.equal(sent.length, 1);
+  assert.match(sent[0], /`opennews:987654`/);
+
+  const second = await runPullAndPost({ adapter, coldStoreRoot: root, channel });
+  assert.equal(second.posted, 0);
+  assert.equal(second.skipped, 1);
+  assert.equal(sent.length, 1);
+
+  // The posted item is retrievable from the cold store by its marker id —
+  // the exact lookup the tap-to-save handler performs.
+  const marker = parseMarker(sent[0]);
+  const stored = await readItem({ root, source: marker.source, id: marker.id });
+  assert.equal(stored.title, 'Hyperliquid lists HIP-4 vaults');
 });
