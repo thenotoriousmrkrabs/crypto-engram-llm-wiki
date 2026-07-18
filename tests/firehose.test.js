@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { PROJECT_ROOT } from '../src/main/utils/paths.js';
@@ -9,6 +10,7 @@ import { storeItems, readItem, hasItem, itemId } from '../src/main/firehose/cold
 import { runPullJob } from '../src/main/firehose/pull-job.js';
 import { formatItemMessage, parseMarker, postItems } from '../src/main/firehose/discord-poster.js';
 import { runPullAndPost } from '../src/main/firehose/pull-and-post.js';
+import { promoteItem } from '../src/main/firehose/promote.js';
 import { fetchLatestNews, fetchOpenNewsJson } from '../src/main/firehose/opennews-client.js';
 import { mapArticleToSourceItem } from '../src/main/firehose/opennews-mapper.js';
 import { normalizeSourceItem } from '../src/main/adapters/source-item.js';
@@ -322,4 +324,40 @@ test('pull-and-post posts each new item once and nothing on a re-tick', async ()
   const marker = parseMarker(sent[0]);
   const stored = await readItem({ root, source: marker.source, id: marker.id });
   assert.equal(stored.title, 'Hyperliquid lists HIP-4 vaults');
+});
+
+test('promote moves exactly one tapped item from cold store into 00_Inbox, deduped', async () => {
+  const coldRoot = await freshColdStoreRoot();
+  const vaultRoot = path.join(PROJECT_ROOT, '.tmp-tests', crypto.randomUUID(), 'Content_Intelligence_Vault');
+  await fs.mkdir(vaultRoot, { recursive: true });
+
+  // Firehose tick: two items land in the cold store, none in the wiki.
+  const adapter = new OpenNewsMCPAdapter({
+    token: 'token-6551',
+    fetchLatest: async () => [SAMPLE_ARTICLE, { id: 111, text: 'Unpromoted item', ts: 1752700100000 }]
+  });
+  await runPullJob({ adapter, coldStoreRoot: coldRoot });
+  assert.equal(fsSync.existsSync(path.join(vaultRoot, '00_Inbox')), false);
+
+  // The tap: promote one id.
+  const first = await promoteItem({ vaultRoot, source: 'opennews', id: '987654', coldStoreRoot: coldRoot });
+  assert.equal(first.promoted, true);
+  assert.equal(first.duplicate, false);
+  assert.match(first.rawPath, /^00_Inbox\/OpenNews\//);
+  const rawText = await fs.readFile(path.join(vaultRoot, first.rawPath), 'utf8');
+  assert.match(rawText, /Hyperliquid lists HIP-4 vaults/);
+
+  // Same tap again dedupes instead of double-ingesting.
+  const again = await promoteItem({ vaultRoot, source: 'opennews', id: '987654', coldStoreRoot: coldRoot });
+  assert.equal(again.promoted, false);
+  assert.equal(again.duplicate, true);
+
+  // The unpromoted item never crossed the gate (#12)…
+  const inboxFiles = await fs.readdir(path.join(vaultRoot, '00_Inbox/OpenNews'));
+  assert.equal(inboxFiles.length, 1);
+  // …and an unknown id fails loudly.
+  await assert.rejects(
+    promoteItem({ vaultRoot, source: 'opennews', id: 'nope', coldStoreRoot: coldRoot }),
+    /cold store has no item opennews:nope/
+  );
 });
