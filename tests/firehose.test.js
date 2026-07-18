@@ -2,6 +2,19 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadFirehoseConfig } from '../src/main/firehose/config.js';
 import { fetchLatestNews, fetchOpenNewsJson } from '../src/main/firehose/opennews-client.js';
+import { mapArticleToSourceItem } from '../src/main/firehose/opennews-mapper.js';
+import { normalizeSourceItem } from '../src/main/adapters/source-item.js';
+
+const SAMPLE_ARTICLE = {
+  id: 987654,
+  text: 'Hyperliquid lists HIP-4 vaults',
+  newsType: 'CoinDesk',
+  engineType: 'news',
+  link: 'https://example.com/hip-4',
+  coins: [{ symbol: 'HYPE', market_type: 'cex', match: 'title', score: 91, signal: 'long', grade: 'A' }],
+  aiRating: { score: 91, grade: 'A', signal: 'long', status: 'done', enSummary: 'HIP-4 summary' },
+  ts: 1752700000000
+};
 
 const FULL_ENV = {
   OPENNEWS_TOKEN: 'token-6551',
@@ -112,4 +125,31 @@ test('fetchLatestNews surfaces HTTP errors and malformed payloads', async () => 
     fetchLatestNews({ token: 't', fetchImpl: malformed.impl }),
     /no data array/
   );
+});
+
+test('mapArticleToSourceItem maps the 6551 article shape onto a SourceItem', () => {
+  const item = mapArticleToSourceItem(SAMPLE_ARTICLE);
+
+  assert.equal(item.source, 'opennews');
+  assert.equal(item.source_id, '987654');
+  assert.equal(item.url, 'https://example.com/hip-4');
+  assert.equal(item.title, 'Hyperliquid lists HIP-4 vaults');
+  assert.equal(item.created_at, new Date(1752700000000).toISOString());
+  assert.deepEqual(item.tags, ['opennews', 'news', 'CoinDesk']);
+  // The whole article — coins and aiRating included — survives under raw
+  // for later confidence use; it is never a page field (#10/#24).
+  assert.deepEqual(item.raw, SAMPLE_ARTICLE);
+  assert.equal(item.raw.aiRating.score, 91);
+});
+
+test('mapArticleToSourceItem tolerates a minimal article and normalizes cleanly', () => {
+  const item = mapArticleToSourceItem({ id: 'x1' });
+  assert.equal(item.source_id, 'x1');
+  assert.equal(item.title, 'Untitled opennews item');
+  assert.equal(item.created_at, '');
+  assert.deepEqual(item.tags, ['opennews']);
+
+  const normalized = normalizeSourceItem(item, { source: 'opennews' });
+  assert.equal(normalized.source, 'opennews');
+  assert.ok(normalized.dedupe_key.length > 0);
 });
