@@ -1,7 +1,22 @@
-import { StaticSourceAdapter } from './source-item.js';
+import { fetchLatestNews } from '../firehose/opennews-client.js';
+import { mapArticleToSourceItem } from '../firehose/opennews-mapper.js';
+import { normalizeSourceItem } from './source-item.js';
 
-export class OpenNewsMCPAdapter extends StaticSourceAdapter {
-  constructor({ items = [] } = {}) {
-    super({ source: 'opennews', items });
+// Real opennews adapter (issue #3 commit 5): composes the 6551 REST client
+// and the article mapper behind the same fetch() contract every adapter
+// shares. The client is injectable so tests never touch the network.
+export class OpenNewsMCPAdapter {
+  constructor({ token, limit = 100, fetchLatest = fetchLatestNews } = {}) {
+    this.source = 'opennews';
+    this.token = token;
+    this.limit = limit;
+    this.fetchLatest = fetchLatest;
+  }
+
+  async fetch() {
+    const articles = await this.fetchLatest({ token: this.token, limit: this.limit });
+    return articles.map((article) =>
+      normalizeSourceItem(mapArticleToSourceItem(article), { source: this.source })
+    );
   }
 }

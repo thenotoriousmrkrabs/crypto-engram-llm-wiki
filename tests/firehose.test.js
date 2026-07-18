@@ -4,6 +4,7 @@ import { loadFirehoseConfig } from '../src/main/firehose/config.js';
 import { fetchLatestNews, fetchOpenNewsJson } from '../src/main/firehose/opennews-client.js';
 import { mapArticleToSourceItem } from '../src/main/firehose/opennews-mapper.js';
 import { normalizeSourceItem } from '../src/main/adapters/source-item.js';
+import { OpenNewsMCPAdapter } from '../src/main/adapters/opennews-mcp-adapter.js';
 
 const SAMPLE_ARTICLE = {
   id: 987654,
@@ -152,4 +153,24 @@ test('mapArticleToSourceItem tolerates a minimal article and normalizes cleanly'
   const normalized = normalizeSourceItem(item, { source: 'opennews' });
   assert.equal(normalized.source, 'opennews');
   assert.ok(normalized.dedupe_key.length > 0);
+});
+
+test('OpenNewsMCPAdapter composes client and mapper behind the adapter contract', async () => {
+  const seen = [];
+  const fakeFetchLatest = async ({ token, limit }) => {
+    seen.push({ token, limit });
+    return [SAMPLE_ARTICLE];
+  };
+  const adapter = new OpenNewsMCPAdapter({ token: 'token-6551', limit: 25, fetchLatest: fakeFetchLatest });
+
+  const items = await adapter.fetch();
+
+  assert.deepEqual(seen, [{ token: 'token-6551', limit: 25 }]);
+  assert.equal(adapter.source, 'opennews');
+  assert.equal(items.length, 1);
+  assert.equal(items[0].source, 'opennews');
+  assert.equal(items[0].source_id, '987654');
+  assert.equal(items[0].title, 'Hyperliquid lists HIP-4 vaults');
+  assert.ok(items[0].dedupe_key.length > 0);
+  assert.equal(items[0].raw.aiRating.grade, 'A');
 });
