@@ -3,6 +3,9 @@ node_modules/
 .tmp-tests/
 firehose/
 
+# Secrets — real tokens live only here; .env.example carries placeholders.
+.env
+
 # Raw evidence drops — your accumulating reading history (#16 forward-accumulation).
 # Git history is permanent, so keep real clips out of it by default rather than
 # relying on remembering later. Compiled pages and mock seed data still commit.

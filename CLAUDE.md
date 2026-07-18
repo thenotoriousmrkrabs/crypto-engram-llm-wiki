@@ -256,6 +256,7 @@ Single-context. Glossary in `CONTEXT.md`; **ADRs are consolidated in `docs/DECIS
 ## Safety Constraints
 
 - Keep zero external npm dependencies unless the user explicitly approves a dependency change.
+  - Approved (2026-07-17, issue #3): `discord.js` — tap-to-save needs a gateway bot that can *receive* reactions; a webhook is one-way, and hand-rolling the gateway zero-dep is impractical. This is the only approved dependency; the 6551 pull path stays zero-dep on native `fetch`.
 - Only write inside the project directory and configured vault root.
 - Do not delete raw source files.
 - Do not move raw source files unless explicitly requested.
