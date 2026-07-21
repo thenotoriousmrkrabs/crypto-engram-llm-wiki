@@ -12,11 +12,24 @@ export async function runPullJob({ adapter, coldStoreRoot = defaultColdStoreRoot
     items
   });
 
+  // `stored` holds each newly-written id once; two fetched items sharing an id
+  // both match storedIds, so emit each id only the first time to avoid a
+  // double post of a single cold-store write (#2).
   const storedIds = new Set(stored);
+  const emitted = new Set();
+  const newItems = [];
+  for (const item of items) {
+    const id = itemId(item);
+    if (storedIds.has(id) && !emitted.has(id)) {
+      emitted.add(id);
+      newItems.push(item);
+    }
+  }
+
   return {
     source: adapter.source,
     fetched: items.length,
     skipped: skipped.length,
-    newItems: items.filter((item) => storedIds.has(itemId(item)))
+    newItems
   };
 }

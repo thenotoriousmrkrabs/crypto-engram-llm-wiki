@@ -268,6 +268,22 @@ test('runPullJob stores new items and returns nothing on the second tick', async
   assert.deepEqual(third.newItems.map((item) => item.source_id), ['p3']);
 });
 
+test('runPullJob surfaces a duplicate id within one fetch only once', async () => {
+  const root = await freshColdStoreRoot();
+  const adapter = {
+    source: 'opennews',
+    fetch: async () => [
+      { source_id: 'dup', title: 'first copy' },
+      { source_id: 'dup', title: 'second copy' },
+      { source_id: 'solo', title: 'other' }
+    ]
+  };
+
+  const result = await runPullJob({ adapter, coldStoreRoot: root });
+  // The cold store wrote 'dup' once, so it must post once, not twice (#2).
+  assert.deepEqual(result.newItems.map((item) => item.source_id), ['dup', 'solo']);
+});
+
 test('discord poster formats one message per item with a parseable marker', async () => {
   const sent = [];
   const channel = { send: async (content) => sent.push(content) };
@@ -299,7 +315,30 @@ test('discord poster stays under the message length limit', () => {
   };
   const content = formatItemMessage(item);
   assert.ok(content.length <= 2000);
-  assert.match(content, /…$/);
+});
+
+test('long article keeps the save marker so tap-to-save still resolves it', () => {
+  const item = {
+    source: 'opennews',
+    source_id: 'long1',
+    title: 'T'.repeat(3000),
+    url: 'https://example.com/hip-4',
+    tags: []
+  };
+  const content = formatItemMessage(item);
+  assert.ok(content.length <= 2000);
+  // url and marker survive even though the title was truncated (#1).
+  assert.match(content, /https:\/\/example\.com\/hip-4/);
+  assert.deepEqual(parseMarker(content), { source: 'opennews', id: 'long1' });
+});
+
+test('parseMarker ignores a backticked pair in the title and takes the marker', () => {
+  const item = normalizeSourceItem(
+    { source: 'opennews', source_id: 'n9', title: 'ratio `foo:bar` spikes' },
+    { source: 'opennews' }
+  );
+  const content = formatItemMessage(item);
+  assert.deepEqual(parseMarker(content), { source: 'opennews', id: 'n9' });
 });
 
 test('pull-and-post posts each new item once and nothing on a re-tick', async () => {

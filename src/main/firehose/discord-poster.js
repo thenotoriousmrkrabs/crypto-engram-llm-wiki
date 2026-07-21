@@ -13,10 +13,13 @@ export function itemMarker(item) {
 }
 
 export function parseMarker(messageContent) {
-  const match = String(messageContent || '').match(/`([a-z0-9_-]+):([^`\s]+)`/i);
-  if (!match) {
+  // The marker is the LAST backtick pair in the message; a title can contain
+  // its own `word:word` backticks, so match all and take the last (#4).
+  const matches = [...String(messageContent || '').matchAll(/`([a-z0-9_-]+):([^`\s]+)`/gi)];
+  if (matches.length === 0) {
     return null;
   }
+  const match = matches[matches.length - 1];
   return { source: match[1], id: match[2] };
 }
 
@@ -27,16 +30,23 @@ export function formatItemMessage(item) {
     : '';
   const tags = (item.tags || []).filter((tag) => tag !== item.source).join('/');
 
-  const lines = [
-    `📰 **${String(item.title || 'Untitled').trim()}**`,
-    String(item.url || '').trim(),
-    `\`${itemMarker(item)}\`${tags ? ` · ${tags}` : ''}${ratingLine}`
-  ].filter((line) => line !== '');
+  const url = String(item.url || '').trim();
+  const markerLine = `\`${itemMarker(item)}\`${tags ? ` · ${tags}` : ''}${ratingLine}`;
 
-  const content = lines.join('\n');
-  return content.length <= DISCORD_MESSAGE_LIMIT
-    ? content
-    : `${content.slice(0, DISCORD_MESSAGE_LIMIT - 1)}…`;
+  // The marker line is how a later tap resolves back to the cold-store item,
+  // so it must ALWAYS survive (#1). Titles carry the full article text and can
+  // blow past the limit alone, so reserve room for url + marker and truncate
+  // only the title — never the tail.
+  const tail = [url, markerLine].filter((line) => line !== '');
+  const tailText = tail.length ? `\n${tail.join('\n')}` : '';
+  const titleBudget = DISCORD_MESSAGE_LIMIT - tailText.length;
+
+  const rawTitle = `📰 **${String(item.title || 'Untitled').trim()}**`;
+  const titleLine = rawTitle.length <= titleBudget
+    ? rawTitle
+    : `${rawTitle.slice(0, Math.max(0, titleBudget - 1))}…`;
+
+  return `${titleLine}${tailText}`;
 }
 
 export async function postItems({ channel, items = [] }) {
