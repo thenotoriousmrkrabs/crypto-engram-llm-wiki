@@ -35,7 +35,7 @@ The user holds **one premium 6551 API token** that covers two MCP sources.
 Both share backend `https://ai.6551.io` and Bearer auth with that token.
 
 - **opennews-mcp** — crypto/AI news firehose.
-  - REST: `GET /open/news_search` → `{ data: [...articles], total }`.
+  - REST: `POST /open/news_search` with a JSON body (`{ limit, page, … }`) → `{ data: [...articles], total }`. (The gateway 404s a GET on this path.)
   - Also has a WebSocket push (`news_wss`) — **not used yet**; we chose scheduled pull.
   - Each article carries an **AI rating** (`aiRating: { score, grade, signal }`) — this is the MCP's own scoring, e.g. score 0–100, grade A–F, signal long/short. There are two logical event types: `news.update` (everything) and `news.ai_update` (AI-scored/higher-signal subset).
 - **opentwitter-mcp** — tweets from watched accounts.

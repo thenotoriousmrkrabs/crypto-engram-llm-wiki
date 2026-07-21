@@ -466,7 +466,7 @@ The first firehose build (issue #3) arrives by **scheduled pull, not live WebSoc
 - **Bot, not webhook**, because tap-to-save must *receive* reactions; `discord.js` is the sole approved dependency (recorded in CLAUDE.md). The bot is a thin shell over tested functions; only its live Discord/timer I/O is smoke-tested.
 - **Marker-based promote.** Every posted message embeds a `` `source:id` `` line; the reaction handler parses it and promotes exactly that cold-store item through the existing ingestion pipeline into `00_Inbox/OpenNews` — the only firehose → wiki crossing (#12), deduped and logged like any ingest. Markers survive bot restarts (no in-memory message map).
 - **Single reading channel first.** The raw/signal two-channel split is deferred until real traffic justifies it; `aiRating` (score/grade/signal) is preserved under `raw`, so adding score-gating later needs no rework.
-- The 6551 REST contract was **verified against the opennews-mcp server source** (Bearer auth, `GET /open/news_search`, `{ data, total }`), superseding the README-level guesses noted in `docs/sources/6551-mcp-reference.md`.
+- The 6551 REST contract was **verified against the opennews-mcp server source** (Bearer auth, `POST /open/news_search` with a JSON body, `{ data, total }`), superseding the README-level guesses noted in `docs/sources/6551-mcp-reference.md`. **Correction (2026-07-21):** an earlier note here recorded this as `GET`, and shipped code sent `GET`, which the `ai.6551.io` gateway answered with a live `404` on the path (not `405`). Re-verified against `src/opennews_mcp/api_client.py` (`self._request("POST", …/open/news_search, json=body)`) and fixed to `POST` + JSON body.
 
 Reason:
 

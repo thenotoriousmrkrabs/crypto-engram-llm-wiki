@@ -1,6 +1,8 @@
 // Thin 6551 REST client for opennews (issue #3 commit 3; contract verified
-// against 6551Team/opennews-mcp src: Bearer auth, GET /open/news_search,
-// response shape { data: [...], total }).
+// 2026-07-21 against 6551Team/opennews-mcp src/opennews_mcp/api_client.py:
+// Bearer auth, POST /open/news_search with a JSON body, response shape
+// { data: [...], total }). The ai.6551.io gateway returns 404 (not 405) for
+// the wrong method, so a GET here surfaced as a 404 on the path.
 // fetch is injectable so the suite never touches the network.
 
 export const OPENNEWS_API_BASE = 'https://ai.6551.io';
@@ -17,27 +19,48 @@ export async function fetchOpenNewsJson({
     throw new Error('fetchOpenNewsJson requires a 6551 bearer token');
   }
 
-  const url = new URL(endpoint, apiBase);
+  // Upstream takes search params in a JSON body, not the query string. Drop
+  // undefined/null/'' but keep meaningful falsey values like 0 and false.
+  const body = {};
   for (const [name, value] of Object.entries(params)) {
-    if (value === undefined || value === null || String(value) === '') {
+    if (value === undefined || value === null || value === '') {
       continue;
     }
-    url.searchParams.set(name, String(value));
+    body[name] = value;
   }
 
+  const url = new URL(endpoint, apiBase);
   const response = await fetchImpl(url.toString(), {
-    method: 'GET',
+    method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
-      Accept: 'application/json'
-    }
+      Accept: 'application/json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
   });
 
   if (!response.ok) {
-    throw new Error(`6551 request failed: ${response.status} ${endpoint}`);
+    throw new Error(`6551 request failed: ${response.status} ${endpoint}${await responsePreview(response)}`);
   }
 
   return response.json();
+}
+
+// Best-effort short preview of the server's error body to make 4xx/5xx
+// debuggable. Never touches headers/token; a body that can't be read just
+// yields no preview rather than masking the original status.
+async function responsePreview(response) {
+  try {
+    const text = await response.text();
+    const trimmed = String(text || '').trim();
+    if (!trimmed) {
+      return '';
+    }
+    return ` — ${trimmed.length > 200 ? `${trimmed.slice(0, 200)}…` : trimmed}`;
+  } catch {
+    return '';
+  }
 }
 
 export async function fetchLatestNews({ token, limit = 100, apiBase, fetchImpl } = {}) {

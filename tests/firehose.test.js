@@ -87,13 +87,14 @@ function fakeFetchReturning(payload, { status = 200 } = {}) {
     return {
       ok: status >= 200 && status < 300,
       status,
-      json: async () => payload
+      json: async () => payload,
+      text: async () => (typeof payload === 'string' ? payload : JSON.stringify(payload))
     };
   };
   return { impl, calls };
 }
 
-test('fetchLatestNews assembles the news_search request with Bearer auth', async () => {
+test('fetchLatestNews POSTs the news_search request as a JSON body with Bearer auth', async () => {
   const { impl, calls } = fakeFetchReturning({ data: [{ id: 'a1' }], total: 1 });
   const items = await fetchLatestNews({ token: 'token-6551', limit: 50, fetchImpl: impl });
 
@@ -102,23 +103,33 @@ test('fetchLatestNews assembles the news_search request with Bearer auth', async
   const url = new URL(calls[0].url);
   assert.equal(url.origin, 'https://ai.6551.io');
   assert.equal(url.pathname, '/open/news_search');
-  assert.equal(url.searchParams.get('limit'), '50');
-  assert.equal(url.searchParams.get('page'), '1');
+  // Upstream contract is POST + JSON body — no query string (a GET here 404s).
+  assert.equal(url.search, '');
+  assert.equal(calls[0].options.method, 'POST');
   assert.equal(calls[0].options.headers.Authorization, 'Bearer token-6551');
+  assert.equal(calls[0].options.headers['Content-Type'], 'application/json');
+  const body = JSON.parse(calls[0].options.body);
+  assert.equal(body.limit, 50);
+  assert.equal(body.page, 1);
 });
 
-test('fetchOpenNewsJson omits empty params and requires a token', async () => {
+test('fetchOpenNewsJson puts filtered params in the JSON body and requires a token', async () => {
   const { impl, calls } = fakeFetchReturning({ data: [] });
   await fetchOpenNewsJson({
     token: 't',
     endpoint: '/open/news_search',
-    params: { q: 'hyperliquid', coins: '', score: undefined },
+    params: { q: 'hyperliquid', coins: '', score: undefined, hasCoin: false, page: 0 },
     fetchImpl: impl
   });
   const url = new URL(calls[0].url);
-  assert.equal(url.searchParams.get('q'), 'hyperliquid');
-  assert.equal(url.searchParams.has('coins'), false);
-  assert.equal(url.searchParams.has('score'), false);
+  assert.equal(url.search, '');
+  const body = JSON.parse(calls[0].options.body);
+  assert.equal(body.q, 'hyperliquid');
+  assert.equal('coins' in body, false);
+  assert.equal('score' in body, false);
+  // meaningful falsey values are preserved
+  assert.equal(body.hasCoin, false);
+  assert.equal(body.page, 0);
 
   await assert.rejects(
     fetchOpenNewsJson({ token: '  ', endpoint: '/x', fetchImpl: impl }),
@@ -126,17 +137,36 @@ test('fetchOpenNewsJson omits empty params and requires a token', async () => {
   );
 });
 
-test('fetchLatestNews surfaces HTTP errors and malformed payloads', async () => {
-  const denied = fakeFetchReturning({}, { status: 401 });
+test('fetchLatestNews surfaces HTTP errors with a safe body preview and rejects malformed payloads', async () => {
+  const denied = fakeFetchReturning('unauthorized: token lacks entitlement', { status: 401 });
   await assert.rejects(
     fetchLatestNews({ token: 't', fetchImpl: denied.impl }),
-    /6551 request failed: 401/
+    (error) => {
+      assert.match(error.message, /6551 request failed: 401 \/open\/news_search/);
+      assert.match(error.message, /unauthorized: token lacks entitlement/);
+      return true;
+    }
   );
 
   const malformed = fakeFetchReturning({ unexpected: true });
   await assert.rejects(
     fetchLatestNews({ token: 't', fetchImpl: malformed.impl }),
     /no data array/
+  );
+});
+
+test('fetchOpenNewsJson still throws the base HTTP error when the body cannot be read', async () => {
+  const impl = async () => ({
+    ok: false,
+    status: 500,
+    json: async () => ({}),
+    text: async () => {
+      throw new Error('stream broken');
+    }
+  });
+  await assert.rejects(
+    fetchOpenNewsJson({ token: 't', endpoint: '/open/news_search', fetchImpl: impl }),
+    /6551 request failed: 500 \/open\/news_search/
   );
 });
 
