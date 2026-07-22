@@ -63,11 +63,13 @@ async function responsePreview(response) {
   }
 }
 
-export async function fetchLatestNews({ token, limit = 100, apiBase, fetchImpl } = {}) {
+export async function fetchLatestNews({ token, limit = 100, score = 0, apiBase, fetchImpl } = {}) {
   const payload = await fetchOpenNewsJson({
     token,
     endpoint: NEWS_SEARCH_ENDPOINT,
-    params: { limit, page: 1 },
+    // score is the minimum aiRating floor; 0 means "no floor" so we omit it
+    // (fetchOpenNewsJson keeps a meaningful 0, so drop it here explicitly).
+    params: { limit, page: 1, score: score > 0 ? score : undefined },
     apiBase,
     fetchImpl
   });

@@ -9,6 +9,12 @@ const REQUIRED_VARS = ['OPENNEWS_TOKEN', 'DISCORD_BOT_TOKEN', 'DISCORD_CHANNEL_I
 // recall is not lost between ticks (#25 addendum: scheduled-over-live).
 const DEFAULT_PULL_INTERVAL_MINUTES = 20;
 
+// Standing quality gate: opennews rates every article 0-100 (aiRating.score).
+// We pass this as the request `score` floor so low-quality items never leave
+// the gateway (fewest tokens, #goal). Default 70 = broad-but-quality. Set
+// FIREHOSE_MIN_SCORE=0 to disable the floor and pull everything.
+const DEFAULT_MIN_SCORE = 70;
+
 export function loadFirehoseConfig({ env = process.env } = {}) {
   const missing = REQUIRED_VARS.filter((name) => !String(env[name] || '').trim());
   if (missing.length > 0) {
@@ -26,10 +32,19 @@ export function loadFirehoseConfig({ env = process.env } = {}) {
     );
   }
 
+  const rawMinScore = String(env.FIREHOSE_MIN_SCORE ?? '').trim();
+  const minScore = rawMinScore === '' ? DEFAULT_MIN_SCORE : Number(rawMinScore);
+  if (!Number.isFinite(minScore) || minScore < 0 || minScore > 100) {
+    throw new Error(
+      `FIREHOSE_MIN_SCORE must be a number between 0 and 100, got "${rawMinScore}"`
+    );
+  }
+
   return {
     opennewsToken: String(env.OPENNEWS_TOKEN).trim(),
     discordBotToken: String(env.DISCORD_BOT_TOKEN).trim(),
     discordChannelId: String(env.DISCORD_CHANNEL_ID).trim(),
-    pullIntervalMs: intervalMinutes * 60 * 1000
+    pullIntervalMs: intervalMinutes * 60 * 1000,
+    minScore
   };
 }

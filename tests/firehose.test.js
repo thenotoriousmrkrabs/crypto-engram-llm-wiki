@@ -41,8 +41,21 @@ test('loadFirehoseConfig returns parsed config with the default pull interval', 
     opennewsToken: 'token-6551',
     discordBotToken: 'token-discord',
     discordChannelId: '123456789',
-    pullIntervalMs: 20 * 60 * 1000
+    pullIntervalMs: 20 * 60 * 1000,
+    minScore: 70
   });
+});
+
+test('loadFirehoseConfig honors a custom quality floor and rejects out-of-range ones', () => {
+  assert.equal(loadFirehoseConfig({ env: { ...FULL_ENV, FIREHOSE_MIN_SCORE: '85' } }).minScore, 85);
+  // 0 disables the floor
+  assert.equal(loadFirehoseConfig({ env: { ...FULL_ENV, FIREHOSE_MIN_SCORE: '0' } }).minScore, 0);
+  for (const bad of ['-1', '101', 'high']) {
+    assert.throws(
+      () => loadFirehoseConfig({ env: { ...FULL_ENV, FIREHOSE_MIN_SCORE: bad } }),
+      /FIREHOSE_MIN_SCORE/
+    );
+  }
 });
 
 test('loadFirehoseConfig honors a custom pull interval in minutes', () => {
@@ -111,6 +124,18 @@ test('fetchLatestNews POSTs the news_search request as a JSON body with Bearer a
   const body = JSON.parse(calls[0].options.body);
   assert.equal(body.limit, 50);
   assert.equal(body.page, 1);
+  // no score arg -> no floor sent
+  assert.equal('score' in body, false);
+});
+
+test('fetchLatestNews sends the score floor only when it is above zero', async () => {
+  const gated = fakeFetchReturning({ data: [], total: 0 });
+  await fetchLatestNews({ token: 't', limit: 10, score: 70, fetchImpl: gated.impl });
+  assert.equal(JSON.parse(gated.calls[0].options.body).score, 70);
+
+  const open = fakeFetchReturning({ data: [], total: 0 });
+  await fetchLatestNews({ token: 't', limit: 10, score: 0, fetchImpl: open.impl });
+  assert.equal('score' in JSON.parse(open.calls[0].options.body), false);
 });
 
 test('fetchOpenNewsJson puts filtered params in the JSON body and requires a token', async () => {
@@ -199,15 +224,20 @@ test('mapArticleToSourceItem tolerates a minimal article and normalizes cleanly'
 
 test('OpenNewsMCPAdapter composes client and mapper behind the adapter contract', async () => {
   const seen = [];
-  const fakeFetchLatest = async ({ token, limit }) => {
-    seen.push({ token, limit });
+  const fakeFetchLatest = async ({ token, limit, score }) => {
+    seen.push({ token, limit, score });
     return [SAMPLE_ARTICLE];
   };
-  const adapter = new OpenNewsMCPAdapter({ token: 'token-6551', limit: 25, fetchLatest: fakeFetchLatest });
+  const adapter = new OpenNewsMCPAdapter({
+    token: 'token-6551',
+    limit: 25,
+    minScore: 70,
+    fetchLatest: fakeFetchLatest
+  });
 
   const items = await adapter.fetch();
 
-  assert.deepEqual(seen, [{ token: 'token-6551', limit: 25 }]);
+  assert.deepEqual(seen, [{ token: 'token-6551', limit: 25, score: 70 }]);
   assert.equal(adapter.source, 'opennews');
   assert.equal(items.length, 1);
   assert.equal(items[0].source, 'opennews');

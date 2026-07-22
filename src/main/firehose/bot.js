@@ -19,7 +19,10 @@ const SAVE_EMOJI = '💾';
 export function createFirehoseBot({ env = process.env, log = console } = {}) {
   const config = loadFirehoseConfig({ env });
   const vaultRoot = getVaultRoot();
-  const adapter = new OpenNewsMCPAdapter({ token: config.opennewsToken });
+  const adapter = new OpenNewsMCPAdapter({
+    token: config.opennewsToken,
+    minScore: config.minScore
+  });
 
   const client = new Client({
     intents: [
