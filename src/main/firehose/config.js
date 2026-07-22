@@ -32,6 +32,15 @@ export function loadFirehoseConfig({ env = process.env } = {}) {
     );
   }
 
+  // Reading-surface language allow-list. Detection is coarse (en / zh / other),
+  // so this only usefully holds en and/or zh; `all` disables the filter and
+  // posts every language. Other-script items are still stored/seen, just not
+  // posted. Default: only the languages the user reads.
+  const rawLangs = String(env.FIREHOSE_LANGS ?? '').trim();
+  const langs = rawLangs === ''
+    ? ['en', 'zh']
+    : rawLangs.split(',').map((lang) => lang.trim().toLowerCase()).filter(Boolean);
+
   const rawMinScore = String(env.FIREHOSE_MIN_SCORE ?? '').trim();
   const minScore = rawMinScore === '' ? DEFAULT_MIN_SCORE : Number(rawMinScore);
   if (!Number.isFinite(minScore) || minScore < 0 || minScore > 100) {
@@ -45,6 +54,7 @@ export function loadFirehoseConfig({ env = process.env } = {}) {
     discordBotToken: String(env.DISCORD_BOT_TOKEN).trim(),
     discordChannelId: String(env.DISCORD_CHANNEL_ID).trim(),
     pullIntervalMs: intervalMinutes * 60 * 1000,
-    minScore
+    minScore,
+    langs
   };
 }

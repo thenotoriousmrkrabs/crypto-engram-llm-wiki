@@ -39,8 +39,11 @@ export function createFirehoseBot({ env = process.env, log = console } = {}) {
   async function tick() {
     try {
       const channel = await client.channels.fetch(config.discordChannelId);
-      const result = await runPullAndPost({ adapter, channel });
-      log.log(`firehose tick: fetched ${result.fetched}, posted ${result.posted}, seen ${result.skipped}`);
+      const result = await runPullAndPost({ adapter, channel, langs: config.langs });
+      log.log(
+        `firehose tick: fetched ${result.fetched}, posted ${result.posted}, ` +
+        `seen ${result.skipped}, other-language ${result.skippedLang}`
+      );
     } catch (error) {
       // A failed tick is not fatal — the next tick simply catches up (#25).
       log.error(`firehose tick failed: ${error.message}`);

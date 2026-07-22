@@ -1,4 +1,5 @@
 import { itemId } from './cold-store.js';
+import { cleanText } from './text-clean.js';
 
 // Discord posting (issue #3 commit 9). The channel handle is injected, so
 // tests use a fake and the suite never talks to Discord. Each message embeds
@@ -7,6 +8,9 @@ import { itemId } from './cold-store.js';
 // in-memory message map.
 
 const DISCORD_MESSAGE_LIMIT = 2000;
+// A readable headline, not the whole article. The full text still lives in the
+// cold store and in Discord's own link/embed preview under the message.
+const DISPLAY_TITLE_MAX = 300;
 
 export function itemMarker(item) {
   return `${item.source || 'unknown'}:${itemId(item)}`;
@@ -41,7 +45,13 @@ export function formatItemMessage(item) {
   const tailText = tail.length ? `\n${tail.join('\n')}` : '';
   const titleBudget = DISCORD_MESSAGE_LIMIT - tailText.length;
 
-  const rawTitle = `📰 **${String(item.title || 'Untitled').trim()}**`;
+  // Strip HTML/entities and collapse to one line, then cap to a readable
+  // headline so a full-article "title" no longer dumps a wall of text.
+  const cleaned = cleanText(item.title) || 'Untitled';
+  const headline = cleaned.length > DISPLAY_TITLE_MAX
+    ? `${cleaned.slice(0, DISPLAY_TITLE_MAX - 1)}…`
+    : cleaned;
+  const rawTitle = `📰 **${headline}**`;
   const titleLine = rawTitle.length <= titleBudget
     ? rawTitle
     : `${rawTitle.slice(0, Math.max(0, titleBudget - 1))}…`;

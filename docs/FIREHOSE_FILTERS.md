@@ -18,6 +18,20 @@ Why not gate the firehose on coins: a `coins` filter returns only articles
 tagged to those assets, which would hide non-coin-tagged theme stories
 (Polymarket, Kalshi, neobank, RWA, TradFi). Kept broad on purpose.
 
+## Reading-surface hygiene — BUILT
+
+The Discord message is a display layer over the raw evidence; the cold store
+keeps everything verbatim, but the channel is cleaned up:
+
+- **HTML stripped** — `<br/>`, `<span>`, `<b>`, and HTML entities are removed
+  and collapsed to one line (opennews `text` often ships raw HTML).
+- **Headline, not wall-of-text** — the title is capped at ~300 chars; the full
+  text stays in the cold store and Discord's own link/embed preview.
+- **Language gate** — `FIREHOSE_LANGS` (default `en,zh`). Detection is coarse
+  (Latin→en, CJK→zh, everything else→other). Other-language items are still
+  **stored/seen** (never re-fetched), they just aren't posted. Set `all` to post
+  every language. On a 378-item sample: 361 en/zh posted, 17 other-script gated.
+
 ## Coins watchlist (for on-demand `coins` queries / future routing)
 
 Passed as the `coins` list param (comma-separated) when you want a coin-scoped pull:

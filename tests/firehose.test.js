@@ -10,6 +10,7 @@ import { storeItems, readItem, hasItem, itemId } from '../src/main/firehose/cold
 import { runPullJob } from '../src/main/firehose/pull-job.js';
 import { formatItemMessage, parseMarker, postItems } from '../src/main/firehose/discord-poster.js';
 import { runPullAndPost } from '../src/main/firehose/pull-and-post.js';
+import { cleanText, detectLang, keepByLang } from '../src/main/firehose/text-clean.js';
 import { promoteItem } from '../src/main/firehose/promote.js';
 import { fetchLatestNews, fetchOpenNewsJson } from '../src/main/firehose/opennews-client.js';
 import { mapArticleToSourceItem } from '../src/main/firehose/opennews-mapper.js';
@@ -42,8 +43,20 @@ test('loadFirehoseConfig returns parsed config with the default pull interval', 
     discordBotToken: 'token-discord',
     discordChannelId: '123456789',
     pullIntervalMs: 20 * 60 * 1000,
-    minScore: 70
+    minScore: 70,
+    langs: ['en', 'zh']
   });
+});
+
+test('loadFirehoseConfig parses a custom language allow-list', () => {
+  assert.deepEqual(
+    loadFirehoseConfig({ env: { ...FULL_ENV, FIREHOSE_LANGS: 'en, ZH, ja' } }).langs,
+    ['en', 'zh', 'ja']
+  );
+  assert.deepEqual(
+    loadFirehoseConfig({ env: { ...FULL_ENV, FIREHOSE_LANGS: 'all' } }).langs,
+    ['all']
+  );
 });
 
 test('loadFirehoseConfig honors a custom quality floor and rejects out-of-range ones', () => {
@@ -401,6 +414,52 @@ test('parseMarker ignores a backticked pair in the title and takes the marker', 
   assert.deepEqual(parseMarker(content), { source: 'opennews', id: 'n9' });
 });
 
+test('cleanText strips HTML tags, decodes entities, and collapses to one line', () => {
+  assert.equal(
+    cleanText('<span style="x">BTC/USDT</span> OI<br/><br/>Down 5% &amp; rising'),
+    'BTC/USDT OI Down 5% & rising'
+  );
+  assert.equal(cleanText('a &lt;tag&gt; &#39;quote&#39;'), "a <tag> 'quote'");
+  // idempotent: cleaning clean text is a no-op
+  assert.equal(cleanText('already clean'), 'already clean');
+  assert.equal(cleanText(cleanText('<b>x</b>  y')), 'x y');
+});
+
+test('detectLang classifies en, zh, and rejects other scripts', () => {
+  assert.equal(detectLang('AMD to invest $5B in Anthropic'), 'en');
+  assert.equal(detectLang('比特币突破新高价格上涨'), 'zh');
+  assert.equal(detectLang('ترامپ دوباره به لفاظی علیه ایران'), 'other'); // Persian
+  assert.equal(detectLang('ТАСС: ОДИН ЧЕЛОВЕК ПОГИБ'), 'other'); // Cyrillic
+  // a stray foreign word inside English still reads as en (majority rule)
+  assert.equal(detectLang('Iran strait of Hormuz تنگۀ update'), 'en');
+});
+
+test('keepByLang gates on the allow-set and `all` disables it', () => {
+  const enzh = new Set(['en', 'zh']);
+  assert.equal(keepByLang({ text: 'Bitcoin rallies' }, enzh), true);
+  assert.equal(keepByLang({ text: '以太坊上涨' }, enzh), true);
+  assert.equal(keepByLang({ text: 'ТАСС сообщает' }, enzh), false);
+  assert.equal(keepByLang({ text: 'ТАСС сообщает' }, new Set(['all'])), true);
+  assert.equal(keepByLang({ text: 'ТАСС сообщает' }, null), true);
+});
+
+test('formatItemMessage cleans HTML and caps the title to a readable headline', () => {
+  const item = {
+    source: 'opennews',
+    source_id: 'h1',
+    title: `<b>Breaking</b>${'<br/>'}${'x'.repeat(600)}`,
+    url: 'https://example.com/a',
+    tags: []
+  };
+  const content = formatItemMessage(item);
+  assert.doesNotMatch(content, /<br\/?>/); // no raw tags leak through
+  assert.doesNotMatch(content, /<b>/);
+  assert.match(content, /📰 \*\*Breaking /); // tag stripped, text kept
+  assert.match(content, /…\*\*/); // headline capped with an ellipsis
+  // marker + url still resolve
+  assert.deepEqual(parseMarker(content), { source: 'opennews', id: 'h1' });
+});
+
 test('pull-and-post posts each new item once and nothing on a re-tick', async () => {
   const root = await freshColdStoreRoot();
   const adapter = new OpenNewsMCPAdapter({
@@ -425,6 +484,33 @@ test('pull-and-post posts each new item once and nothing on a re-tick', async ()
   const marker = parseMarker(sent[0]);
   const stored = await readItem({ root, source: marker.source, id: marker.id });
   assert.equal(stored.title, 'Hyperliquid lists HIP-4 vaults');
+});
+
+test('pull-and-post stores every language but only posts the allowed ones', async () => {
+  const root = await freshColdStoreRoot();
+  const adapter = new OpenNewsMCPAdapter({
+    token: 'token-6551',
+    fetchLatest: async () => [
+      { id: 501, text: 'AMD to invest in Anthropic', ts: 1752700100000 },
+      { id: 502, text: 'ТАСС: срочное сообщение о рынке', ts: 1752700100001 }
+    ]
+  });
+  const sent = [];
+  const channel = { send: async (content) => sent.push(content) };
+
+  const result = await runPullAndPost({
+    adapter,
+    coldStoreRoot: root,
+    channel,
+    langs: ['en', 'zh']
+  });
+
+  assert.equal(result.posted, 1); // only the English item reaches the channel
+  assert.equal(result.skippedLang, 1); // the Russian item is gated from posting
+  assert.equal(sent.length, 1);
+  assert.match(sent[0], /AMD to invest/);
+  // ...but the gated item is still stored (seen), so it never re-fetches.
+  assert.equal(await hasItem({ root, source: 'opennews', id: '502' }), true);
 });
 
 test('promote moves exactly one tapped item from cold store into 00_Inbox, deduped', async () => {
