@@ -272,6 +272,14 @@ test('mapArticleToSourceItem maps the 6551 article shape onto a SourceItem', () 
   assert.equal(item.raw.aiRating.score, 91);
 });
 
+test('mapArticleToSourceItem parses an ISO-string ts (the real opennews shape)', () => {
+  const item = mapArticleToSourceItem({ id: 5, text: 'x', ts: '2026-06-23T20:02:29.266+08:00' });
+  assert.equal(item.created_at, new Date('2026-06-23T20:02:29.266+08:00').toISOString());
+  // garbage/absent ts stays empty, never a bogus 1970 date
+  assert.equal(mapArticleToSourceItem({ id: 6, ts: 'not-a-date' }).created_at, '');
+  assert.equal(mapArticleToSourceItem({ id: 7 }).created_at, '');
+});
+
 test('mapArticleToSourceItem tolerates a minimal article and normalizes cleanly', () => {
   const item = mapArticleToSourceItem({ id: 'x1' });
   assert.equal(item.source_id, 'x1');

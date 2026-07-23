@@ -18,10 +18,16 @@ export function mapArticleToSourceItem(article = {}) {
   };
 }
 
+// opennews `ts` is an ISO string (e.g. "2026-06-23T20:02:29.266+08:00"); older
+// fixtures used epoch ms. Accept both and normalize to a UTC ISO string.
 function toIsoDate(ts) {
-  if (typeof ts !== 'number' || !Number.isFinite(ts)) {
-    return '';
+  if (typeof ts === 'number' && Number.isFinite(ts)) {
+    const date = new Date(ts);
+    return Number.isNaN(date.getTime()) ? '' : date.toISOString();
   }
-  const date = new Date(ts);
-  return Number.isNaN(date.getTime()) ? '' : date.toISOString();
+  if (typeof ts === 'string' && ts.trim() !== '') {
+    const parsed = Date.parse(ts);
+    return Number.isNaN(parsed) ? '' : new Date(parsed).toISOString();
+  }
+  return '';
 }
