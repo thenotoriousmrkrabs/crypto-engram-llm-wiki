@@ -373,6 +373,39 @@ test('OpenNewsMCPAdapter fans out into coin + theme pulls, merges, and tags them
   assert.deepEqual(poly.matched_themes, ['Polymarket']);
 });
 
+test('OpenNewsMCPAdapter records per-query fetched/new stats without double-counting', async () => {
+  // The HYPE article is surfaced by BOTH the coins pull and the Hyperliquid
+  // theme pull; its "new" credit must go only to the first (coins).
+  const hype = { id: 'h', text: 'Hyperliquid news', ts: 3, coins: [{ symbol: 'HYPE' }] };
+  const meme1 = { id: 'm1', text: 'memecoin one', ts: 2, coins: [] };
+  const meme2 = { id: 'm2', text: 'memecoin two', ts: 1, coins: [] };
+  const adapter = new OpenNewsMCPAdapter({
+    token: 't',
+    limit: 100,
+    coins: ['HYPE'],
+    themes: ['Hyperliquid', 'Memecoin'],
+    isSeen: () => false,
+    fetchLatest: async ({ coins, q }) => {
+      if (coins) return [hype];
+      if (q === 'Hyperliquid') return [hype];   // duplicate of the coins pull
+      if (q === 'Memecoin') return [meme1, meme2];
+      return [];
+    }
+  });
+
+  const items = await adapter.fetch();
+  assert.equal(items.length, 3); // hype deduped, plus the two memecoins
+
+  assert.deepEqual(adapter.lastStats, [
+    { label: 'coins', fetched: 1, fresh: 1 },       // first to surface HYPE
+    { label: 'Hyperliquid', fetched: 1, fresh: 0 }, // re-surfaced it, no new credit
+    { label: 'Memecoin', fetched: 2, fresh: 2 }
+  ]);
+  // Per-query "new" sums to the unique new total.
+  const totalFresh = adapter.lastStats.reduce((sum, stat) => sum + stat.fresh, 0);
+  assert.equal(totalFresh, items.length);
+});
+
 test('OpenNewsMCPAdapter pages back until a page is entirely already-seen', async () => {
   // limit 2 makes a full page 2 items. Page 1 is all-new, page 2 is all-seen.
   const pages = {

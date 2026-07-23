@@ -58,8 +58,12 @@ export class OpenNewsMCPAdapter {
   async fetch() {
     const watchlist = new Set(this.coins.map((coin) => String(coin).toUpperCase()));
     const byId = new Map();
+    // Per-query volume, for the tick log: how much each pull fetched (raw) and
+    // how many new items it was the first to surface. Lets us see which of the
+    // ~18 pulls drives the volume and trim it surgically.
+    this.lastStats = [];
     for (const query of this.queries()) {
-      await this.pullQuery(query, watchlist, byId);
+      this.lastStats.push(await this.pullQuery(query, watchlist, byId));
     }
     return [...byId.values()];
   }
@@ -68,6 +72,9 @@ export class OpenNewsMCPAdapter {
   // item (we've paged back into the previous tick), when a short page signals
   // there is no more data, or when the page cap is reached.
   async pullQuery(query, watchlist, byId) {
+    const label = query.theme || (query.coins ? 'coins' : 'broad');
+    let fetched = 0;
+    let fresh = 0;
     for (let page = 1; page <= this.maxPages; page += 1) {
       const articles = await this.fetchLatest({
         token: this.token,
@@ -80,29 +87,37 @@ export class OpenNewsMCPAdapter {
       if (articles.length === 0) {
         break;
       }
+      fetched += articles.length;
 
       let unseenOnPage = 0;
       for (const article of articles) {
         const item = normalizeSourceItem(mapArticleToSourceItem(article), { source: this.source });
-        if (!this.isSeen(item)) {
+        const seen = this.isSeen(item);
+        if (!seen) {
           unseenOnPage += 1;
         }
-        this.collect(item, article, query, watchlist, byId);
+        // Credit "new" to the first query to surface an unseen item, so the
+        // per-query new counts sum to the tick's posted total (no double-count).
+        if (this.collect(item, article, query, watchlist, byId) && !seen) {
+          fresh += 1;
+        }
       }
 
       if (unseenOnPage === 0 || articles.length < this.limit) {
         break;
       }
     }
+    return { label, fetched, fresh };
   }
 
+  // Returns true when this is the first time the item has been seen this tick.
   collect(item, article, query, watchlist, byId) {
     const key = item.source_id || item.dedupe_key;
     const existing = byId.get(key);
     if (existing) {
       // Same article surfaced by another pull/page — union its theme provenance.
       addTheme(existing, query.theme);
-      return;
+      return false;
     }
     // First sighting: record which of the user's coins it touches (from the
     // article's own coin tags) and which theme pull found it.
@@ -110,6 +125,7 @@ export class OpenNewsMCPAdapter {
     item.matched_themes = [];
     addTheme(item, query.theme);
     byId.set(key, item);
+    return true;
   }
 }
 

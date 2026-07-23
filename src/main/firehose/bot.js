@@ -51,6 +51,16 @@ export function createFirehoseBot({ env = process.env, log = console } = {}) {
         `firehose tick: fetched ${result.fetched}, posted ${result.posted}, ` +
         `seen ${result.skipped}, other-language ${result.skippedLang}`
       );
+      // Per-query breakdown (label fetched/new), biggest new-contributors first,
+      // so it's clear which pulls to trim if the volume is too high.
+      const stats = (adapter.lastStats || [])
+        .slice()
+        .sort((a, b) => b.fresh - a.fresh || b.fetched - a.fetched)
+        .map((stat) => `${stat.label} ${stat.fetched}/${stat.fresh}`)
+        .join(' · ');
+      if (stats) {
+        log.log(`firehose per-query (fetched/new): ${stats}`);
+      }
     } catch (error) {
       // A failed tick is not fatal — the next tick simply catches up (#25).
       log.error(`firehose tick failed: ${error.message}`);
