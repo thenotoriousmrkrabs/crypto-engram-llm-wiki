@@ -16,6 +16,11 @@ export function itemMarker(item) {
   return `${item.source || 'unknown'}:${itemId(item)}`;
 }
 
+// A theme label as a searchable hashtag: "prediction market" -> "#predictionmarket".
+function themeTag(theme) {
+  return `#${String(theme).replace(/\s+/g, '')}`;
+}
+
 export function parseMarker(messageContent) {
   // The marker is the LAST backtick pair in the message; a title can contain
   // its own `word:word` backticks, so match all and take the last (#4).
@@ -32,10 +37,19 @@ export function formatItemMessage(item) {
   const ratingLine = rating && rating.score !== undefined
     ? ` · AI ${rating.score} ${rating.grade || ''} ${rating.signal || ''}`.trimEnd()
     : '';
-  const tags = (item.tags || []).filter((tag) => tag !== item.source).join('/');
+
+  // Filter facets so a later channel-history search (and Hermes) can slice the
+  // mixed feed by asset or theme: the watched coins the item touches, then the
+  // theme pull(s) that surfaced it, then the raw category tags.
+  const coins = Array.isArray(item.watchlist_coins) ? item.watchlist_coins : [];
+  const themes = Array.isArray(item.matched_themes) ? item.matched_themes : [];
+  const coinPart = coins.length ? ` · ${coins.join(' ')}` : '';
+  const themePart = themes.length ? ` · ${themes.map(themeTag).join(' ')}` : '';
+  const category = (item.tags || []).filter((tag) => tag !== item.source).join('/');
+  const categoryPart = category ? ` · ${category}` : '';
 
   const url = String(item.url || '').trim();
-  const markerLine = `\`${itemMarker(item)}\`${tags ? ` · ${tags}` : ''}${ratingLine}`;
+  const markerLine = `\`${itemMarker(item)}\`${coinPart}${themePart}${categoryPart}${ratingLine}`;
 
   // The marker line is how a later tap resolves back to the cold-store item,
   // so it must ALWAYS survive (#1). Titles carry the full article text and can

@@ -63,13 +63,23 @@ async function responsePreview(response) {
   }
 }
 
-export async function fetchLatestNews({ token, limit = 100, score = 0, apiBase, fetchImpl } = {}) {
+export async function fetchLatestNews({ token, limit = 100, score = 0, coins, q, page = 1, apiBase, fetchImpl } = {}) {
   const payload = await fetchOpenNewsJson({
     token,
     endpoint: NEWS_SEARCH_ENDPOINT,
     // score is the minimum aiRating floor; 0 means "no floor" so we omit it
     // (fetchOpenNewsJson keeps a meaningful 0, so drop it here explicitly).
-    params: { limit, page: 1, score: score > 0 ? score : undefined },
+    // coins narrows to articles tagged to those tickers; q is a single full-text
+    // theme string. Each is one narrow pull; the adapter fans out and merges.
+    // page walks the recency-sorted list newest->older (1-indexed) so the
+    // adapter can reach back past the last tick's newest 100.
+    params: {
+      limit,
+      page,
+      score: score > 0 ? score : undefined,
+      coins: coinsParam(coins),
+      q: String(q || '').trim() || undefined
+    },
     apiBase,
     fetchImpl
   });
@@ -78,4 +88,14 @@ export async function fetchLatestNews({ token, limit = 100, score = 0, apiBase, 
     throw new Error('6551 news_search response has no data array');
   }
   return payload.data;
+}
+
+// coins may arrive as an array of tickers or a pre-joined string; send it as a
+// comma-separated list. An empty array/string collapses to '' and is dropped
+// by fetchOpenNewsJson, so no coins filter is sent.
+function coinsParam(coins) {
+  if (Array.isArray(coins)) {
+    return coins.map((coin) => String(coin).trim()).filter(Boolean).join(',');
+  }
+  return String(coins || '').trim() || undefined;
 }

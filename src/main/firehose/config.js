@@ -5,15 +5,47 @@
 
 const REQUIRED_VARS = ['OPENNEWS_TOKEN', 'DISCORD_BOT_TOKEN', 'DISCORD_CHANNEL_ID'];
 
-// Modest default keeps pulls under the ~100-row cap of get_latest_news so
-// recall is not lost between ticks (#25 addendum: scheduled-over-live).
-const DEFAULT_PULL_INTERVAL_MINUTES = 20;
+// Default cadence: 4x/day (every 6h). A longer interval accumulates more than
+// the ~100-row page cap per query, so it is paired with paging (maxPages) that
+// reaches back past a single page (#25 addendum: scheduled-over-live).
+const DEFAULT_PULL_INTERVAL_MINUTES = 360;
+
+// How many pages each query walks back per tick before giving up (safety bound
+// on API calls). 3 pages x 100 rows = a 300-item margin per query per pull,
+// enough to cover a 6h gap on all but the most extreme volume.
+const DEFAULT_MAX_PAGES = 3;
 
 // Standing quality gate: opennews rates every article 0-100 (aiRating.score).
 // We pass this as the request `score` floor so low-quality items never leave
 // the gateway (fewest tokens, #goal). Default 70 = broad-but-quality. Set
 // FIREHOSE_MIN_SCORE=0 to disable the floor and pull everything.
 const DEFAULT_MIN_SCORE = 70;
+
+// The curated watchlists. The feed is the UNION of a coin-list pull and one
+// full-text pull per theme (see OpenNewsMCPAdapter) — nothing outside these
+// lists reaches the channel. Edit via FIREHOSE_COINS / FIREHOSE_THEMES in .env;
+// set either to `none` to drop that half, or empty to fall back to these.
+const DEFAULT_COINS = ['HYPE', 'BTC', 'BNB', 'ETH', 'SOL', 'USDT', 'USDC', 'ZEC', 'USDS', 'USDe'];
+const DEFAULT_THEMES = [
+  'HIP-4', 'stablecoin', 'prediction market', 'Polymarket', 'Kalshi', 'Hyperliquid',
+  'HIP-3', 'neobank', 'crypto cards', 'Collector Crypt', 'TradFi', 'PerpDex', 'DeFi',
+  'Yield', 'Base', 'Robinhood', 'RWAs', 'Smart Contract', 'Layer 1', 'Layer 2', 'CEX',
+  'Wallet', 'Listings', 'Memecoin', 'MiCA', 'Privacy', 'Governance', 'Perpetuals',
+  'Onchain data', 'x402', 'Lending', 'Borrowing', 'Vault'
+];
+
+// Comma-separated env list with a fallback: empty -> the default list;
+// literal `none` -> an empty list (drops that pull); otherwise the parsed list.
+function parseList(raw, fallback) {
+  const trimmed = String(raw ?? '').trim();
+  if (trimmed === '') {
+    return fallback;
+  }
+  if (trimmed.toLowerCase() === 'none') {
+    return [];
+  }
+  return trimmed.split(',').map((value) => value.trim()).filter(Boolean);
+}
 
 export function loadFirehoseConfig({ env = process.env } = {}) {
   const missing = REQUIRED_VARS.filter((name) => !String(env[name] || '').trim());
@@ -49,12 +81,26 @@ export function loadFirehoseConfig({ env = process.env } = {}) {
     );
   }
 
+  const coins = parseList(env.FIREHOSE_COINS, DEFAULT_COINS);
+  const themes = parseList(env.FIREHOSE_THEMES, DEFAULT_THEMES);
+
+  const rawMaxPages = String(env.FIREHOSE_MAX_PAGES ?? '').trim();
+  const maxPages = rawMaxPages === '' ? DEFAULT_MAX_PAGES : Number(rawMaxPages);
+  if (!Number.isInteger(maxPages) || maxPages < 1) {
+    throw new Error(
+      `FIREHOSE_MAX_PAGES must be a positive integer, got "${rawMaxPages}"`
+    );
+  }
+
   return {
     opennewsToken: String(env.OPENNEWS_TOKEN).trim(),
     discordBotToken: String(env.DISCORD_BOT_TOKEN).trim(),
     discordChannelId: String(env.DISCORD_CHANNEL_ID).trim(),
     pullIntervalMs: intervalMinutes * 60 * 1000,
     minScore,
-    langs
+    langs,
+    coins,
+    themes,
+    maxPages
   };
 }

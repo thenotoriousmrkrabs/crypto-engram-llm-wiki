@@ -38,14 +38,35 @@ const FULL_ENV = {
 
 test('loadFirehoseConfig returns parsed config with the default pull interval', () => {
   const config = loadFirehoseConfig({ env: FULL_ENV });
-  assert.deepEqual(config, {
-    opennewsToken: 'token-6551',
-    discordBotToken: 'token-discord',
-    discordChannelId: '123456789',
-    pullIntervalMs: 20 * 60 * 1000,
-    minScore: 70,
-    langs: ['en', 'zh']
+  assert.equal(config.opennewsToken, 'token-6551');
+  assert.equal(config.discordBotToken, 'token-discord');
+  assert.equal(config.discordChannelId, '123456789');
+  assert.equal(config.pullIntervalMs, 360 * 60 * 1000); // 4x/day default
+  assert.equal(config.minScore, 70);
+  assert.equal(config.maxPages, 3);
+  assert.deepEqual(config.langs, ['en', 'zh']);
+  // Default curated lists so the bot runs a curated feed out of the box.
+  assert.ok(config.coins.includes('HYPE') && config.coins.includes('BTC'));
+  assert.equal(config.coins.length, 10);
+  assert.ok(config.themes.includes('Polymarket') && config.themes.includes('prediction market'));
+  assert.ok(config.themes.length > 30);
+});
+
+test('loadFirehoseConfig parses custom coin/theme lists and honors `none`', () => {
+  const custom = loadFirehoseConfig({
+    env: { ...FULL_ENV, FIREHOSE_COINS: 'HYPE, btc ,SOL', FIREHOSE_THEMES: 'Polymarket, x402' }
   });
+  assert.deepEqual(custom.coins, ['HYPE', 'btc', 'SOL']);
+  assert.deepEqual(custom.themes, ['Polymarket', 'x402']);
+
+  // `none` drops that half of the feed; both `none` is the broad fallback.
+  const coinsOnly = loadFirehoseConfig({ env: { ...FULL_ENV, FIREHOSE_THEMES: 'none' } });
+  assert.deepEqual(coinsOnly.themes, []);
+  assert.ok(coinsOnly.coins.length > 0);
+
+  const broad = loadFirehoseConfig({ env: { ...FULL_ENV, FIREHOSE_COINS: 'none', FIREHOSE_THEMES: 'none' } });
+  assert.deepEqual(broad.coins, []);
+  assert.deepEqual(broad.themes, []);
 });
 
 test('loadFirehoseConfig parses a custom language allow-list', () => {
@@ -67,6 +88,16 @@ test('loadFirehoseConfig honors a custom quality floor and rejects out-of-range 
     assert.throws(
       () => loadFirehoseConfig({ env: { ...FULL_ENV, FIREHOSE_MIN_SCORE: bad } }),
       /FIREHOSE_MIN_SCORE/
+    );
+  }
+});
+
+test('loadFirehoseConfig honors a custom page cap and rejects invalid ones', () => {
+  assert.equal(loadFirehoseConfig({ env: { ...FULL_ENV, FIREHOSE_MAX_PAGES: '5' } }).maxPages, 5);
+  for (const bad of ['0', '-2', '2.5', 'lots']) {
+    assert.throws(
+      () => loadFirehoseConfig({ env: { ...FULL_ENV, FIREHOSE_MAX_PAGES: bad } }),
+      /FIREHOSE_MAX_PAGES/
     );
   }
 });
@@ -149,6 +180,23 @@ test('fetchLatestNews sends the score floor only when it is above zero', async (
   const open = fakeFetchReturning({ data: [], total: 0 });
   await fetchLatestNews({ token: 't', limit: 10, score: 0, fetchImpl: open.impl });
   assert.equal('score' in JSON.parse(open.calls[0].options.body), false);
+});
+
+test('fetchLatestNews sends coins as a comma list and q as a full-text string', async () => {
+  const coined = fakeFetchReturning({ data: [], total: 0 });
+  await fetchLatestNews({ token: 't', coins: ['HYPE', 'BTC', 'SOL'], fetchImpl: coined.impl });
+  assert.equal(JSON.parse(coined.calls[0].options.body).coins, 'HYPE,BTC,SOL');
+
+  const themed = fakeFetchReturning({ data: [], total: 0 });
+  await fetchLatestNews({ token: 't', q: 'prediction market', fetchImpl: themed.impl });
+  assert.equal(JSON.parse(themed.calls[0].options.body).q, 'prediction market');
+
+  // Neither → a broad pull carrying no coins/q filter.
+  const broad = fakeFetchReturning({ data: [], total: 0 });
+  await fetchLatestNews({ token: 't', fetchImpl: broad.impl });
+  const body = JSON.parse(broad.calls[0].options.body);
+  assert.equal('coins' in body, false);
+  assert.equal('q' in body, false);
 });
 
 test('fetchOpenNewsJson puts filtered params in the JSON body and requires a token', async () => {
@@ -250,6 +298,7 @@ test('OpenNewsMCPAdapter composes client and mapper behind the adapter contract'
 
   const items = await adapter.fetch();
 
+  // No coins/themes configured -> a single broad pull (score floor only).
   assert.deepEqual(seen, [{ token: 'token-6551', limit: 25, score: 70 }]);
   assert.equal(adapter.source, 'opennews');
   assert.equal(items.length, 1);
@@ -258,6 +307,134 @@ test('OpenNewsMCPAdapter composes client and mapper behind the adapter contract'
   assert.equal(items[0].title, 'Hyperliquid lists HIP-4 vaults');
   assert.ok(items[0].dedupe_key.length > 0);
   assert.equal(items[0].raw.aiRating.grade, 'A');
+  // No watchlist configured -> no coin tag; no theme pull -> no theme tag.
+  assert.deepEqual(items[0].watchlist_coins, []);
+  assert.deepEqual(items[0].matched_themes, []);
+});
+
+test('OpenNewsMCPAdapter fans out into coin + theme pulls, merges, and tags them', async () => {
+  const seen = [];
+  // A HYPE-tagged article opennews returns from BOTH the coin pull and the
+  // Hyperliquid theme pull, plus a theme-only article with no watched coin.
+  const hypeArticle = {
+    id: 700,
+    text: 'Hyperliquid opens HIP-4 vaults',
+    engineType: 'news',
+    ts: 1752700000000,
+    coins: [{ symbol: 'HYPE' }, { symbol: 'TSM' }],
+    aiRating: { score: 91, grade: 'A', signal: 'long' }
+  };
+  const polyArticle = {
+    id: 701,
+    text: 'Polymarket launches election market',
+    engineType: 'news',
+    ts: 1752700000001,
+    coins: [],
+    aiRating: { score: 80, grade: 'A', signal: 'neutral' }
+  };
+  const fakeFetchLatest = async ({ coins, q }) => {
+    seen.push({ coins, q });
+    if (coins) return [hypeArticle];             // the coin-list pull
+    if (q === 'Hyperliquid') return [hypeArticle]; // theme pull, same article
+    if (q === 'Polymarket') return [polyArticle];
+    return [];
+  };
+
+  const adapter = new OpenNewsMCPAdapter({
+    token: 'token-6551',
+    minScore: 70,
+    coins: ['HYPE', 'BTC'],
+    themes: ['Hyperliquid', 'Polymarket'],
+    fetchLatest: fakeFetchLatest
+  });
+
+  const items = await adapter.fetch();
+
+  // One coin pull + one pull per theme, in order.
+  assert.deepEqual(seen, [
+    { coins: ['HYPE', 'BTC'], q: undefined },
+    { coins: undefined, q: 'Hyperliquid' },
+    { coins: undefined, q: 'Polymarket' }
+  ]);
+
+  // The duplicate HYPE article is merged to a single item...
+  assert.equal(items.length, 2);
+  const hype = items.find((item) => item.source_id === '700');
+  const poly = items.find((item) => item.source_id === '701');
+
+  // ...tagged with only the *watched* coin (TSM is dropped) and the theme
+  // pull that also surfaced it.
+  assert.deepEqual(hype.watchlist_coins, ['HYPE']);
+  assert.deepEqual(hype.matched_themes, ['Hyperliquid']);
+
+  // The theme-only article carries its theme tag and no coin tag.
+  assert.deepEqual(poly.watchlist_coins, []);
+  assert.deepEqual(poly.matched_themes, ['Polymarket']);
+});
+
+test('OpenNewsMCPAdapter pages back until a page is entirely already-seen', async () => {
+  // limit 2 makes a full page 2 items. Page 1 is all-new, page 2 is all-seen.
+  const pages = {
+    1: [{ id: 'a', text: 'newest', ts: 4 }, { id: 'b', text: 'newer', ts: 3 }],
+    2: [{ id: 'c', text: 'seen', ts: 2 }, { id: 'd', text: 'seen too', ts: 1 }],
+    3: [{ id: 'e', text: 'should never fetch', ts: 0 }]
+  };
+  const seen = new Set(['c', 'd']);
+  const requested = [];
+  const adapter = new OpenNewsMCPAdapter({
+    token: 't',
+    limit: 2,
+    maxPages: 5,
+    themes: ['x402'],
+    isSeen: (item) => seen.has(item.source_id),
+    fetchLatest: async ({ page }) => {
+      requested.push(page);
+      return pages[page] || [];
+    }
+  });
+
+  const items = await adapter.fetch();
+  // Page 1 full & new -> fetch page 2; page 2 all-seen -> stop before page 3.
+  assert.deepEqual(requested, [1, 2]);
+  // Everything fetched is returned (the cold store dedupes the seen ones later).
+  assert.deepEqual(items.map((item) => item.source_id).sort(), ['a', 'b', 'c', 'd']);
+});
+
+test('OpenNewsMCPAdapter caps pagination at maxPages when every page is new', async () => {
+  const requested = [];
+  const adapter = new OpenNewsMCPAdapter({
+    token: 't',
+    limit: 2,
+    maxPages: 3,
+    themes: ['DeFi'],
+    isSeen: () => false, // fresh cold store — nothing seen yet
+    fetchLatest: async ({ page }) => {
+      requested.push(page);
+      return [{ id: `p${page}a`, text: 'x', ts: page }, { id: `p${page}b`, text: 'y', ts: page }];
+    }
+  });
+
+  await adapter.fetch();
+  // Full new pages forever, but the cap stops it at 3 (no runaway backfill).
+  assert.deepEqual(requested, [1, 2, 3]);
+});
+
+test('OpenNewsMCPAdapter stops at a short page without hitting the cap', async () => {
+  const requested = [];
+  const adapter = new OpenNewsMCPAdapter({
+    token: 't',
+    limit: 100, // page returns fewer than 100 -> it is the last page
+    maxPages: 3,
+    themes: ['Kalshi'],
+    isSeen: () => false,
+    fetchLatest: async ({ page }) => {
+      requested.push(page);
+      return [{ id: 'only', text: 'sole item', ts: 1 }];
+    }
+  });
+
+  await adapter.fetch();
+  assert.deepEqual(requested, [1]); // one short page, no more data
 });
 
 async function freshColdStoreRoot() {
@@ -376,6 +553,36 @@ test('discord poster formats one message per item with a parseable marker', asyn
   assert.deepEqual(parseMarker(sent[0]), { source: 'opennews', id: '987654' });
   assert.deepEqual(parseMarker(sent[1]), { source: 'opennews', id: 'n2' });
   assert.equal(parseMarker('no marker here'), null);
+});
+
+test('discord poster renders coin and theme facets on the marker line', () => {
+  const item = normalizeSourceItem(
+    mapArticleToSourceItem(SAMPLE_ARTICLE),
+    { source: 'opennews' }
+  );
+  item.watchlist_coins = ['HYPE'];
+  item.matched_themes = ['Hyperliquid', 'prediction market'];
+
+  const content = formatItemMessage(item);
+  const markerLine = content.split('\n').pop();
+  // marker, watched coin, theme hashtags (spaces stripped), category, rating.
+  assert.match(markerLine, /`opennews:987654`/);
+  assert.match(markerLine, /· HYPE ·/);
+  assert.match(markerLine, /#Hyperliquid/);
+  assert.match(markerLine, /#predictionmarket/); // "prediction market" -> no spaces
+  assert.match(markerLine, /AI 91 A long/);
+  // still resolves back to the cold-store item.
+  assert.deepEqual(parseMarker(content), { source: 'opennews', id: '987654' });
+});
+
+test('discord poster omits coin/theme facets when there are none', () => {
+  const item = normalizeSourceItem(
+    { source: 'opennews', source_id: 'plain1', title: 'Plain item', tags: [] },
+    { source: 'opennews' }
+  );
+  const markerLine = formatItemMessage(item).split('\n').pop();
+  assert.match(markerLine, /`opennews:plain1`/);
+  assert.doesNotMatch(markerLine, /#/); // no empty theme section
 });
 
 test('discord poster stays under the message length limit', () => {

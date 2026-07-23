@@ -2,6 +2,7 @@ import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import { loadFirehoseConfig } from './config.js';
 import { OpenNewsMCPAdapter } from '../adapters/opennews-mcp-adapter.js';
 import { runPullAndPost } from './pull-and-post.js';
+import { hasItem, itemId } from './cold-store.js';
 import { parseMarker } from './discord-poster.js';
 import { promoteItem } from './promote.js';
 import { getVaultRoot } from '../utils/config.js';
@@ -21,7 +22,13 @@ export function createFirehoseBot({ env = process.env, log = console } = {}) {
   const vaultRoot = getVaultRoot();
   const adapter = new OpenNewsMCPAdapter({
     token: config.opennewsToken,
-    minScore: config.minScore
+    minScore: config.minScore,
+    coins: config.coins,
+    themes: config.themes,
+    maxPages: config.maxPages,
+    // Paging stops once a page is entirely already in the cold store — that is
+    // the signal the gap since the last tick is fully covered.
+    isSeen: (item) => hasItem({ source: 'opennews', id: itemId(item) })
   });
 
   const client = new Client({
@@ -51,7 +58,11 @@ export function createFirehoseBot({ env = process.env, log = console } = {}) {
   }
 
   client.once('clientReady', async () => {
-    log.log(`firehose bot ready as ${client.user.tag}; pulling every ${config.pullIntervalMs / 60000} min`);
+    log.log(
+      `firehose bot ready as ${client.user.tag}; ` +
+      `${config.coins.length} coins + ${config.themes.length} themes, ` +
+      `pulling every ${config.pullIntervalMs / 60000} min`
+    );
     await tick();
     timer = setInterval(tick, config.pullIntervalMs);
   });
