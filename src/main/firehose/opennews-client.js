@@ -90,12 +90,12 @@ export async function fetchLatestNews({ token, limit = 100, score = 0, coins, q,
   return payload.data;
 }
 
-// coins may arrive as an array of tickers or a pre-joined string; send it as a
-// comma-separated list. An empty array/string collapses to '' and is dropped
-// by fetchOpenNewsJson, so no coins filter is sent.
+// The 6551 news_search `coins` field is a Go []string, so it must be a JSON
+// array of tickers — a comma-joined string 400s. Return an array (or undefined
+// when empty, so fetchOpenNewsJson drops it and no coins filter is sent).
 function coinsParam(coins) {
-  if (Array.isArray(coins)) {
-    return coins.map((coin) => String(coin).trim()).filter(Boolean).join(',');
-  }
-  return String(coins || '').trim() || undefined;
+  const list = (Array.isArray(coins) ? coins : [coins])
+    .map((coin) => String(coin ?? '').trim())
+    .filter(Boolean);
+  return list.length ? list : undefined;
 }

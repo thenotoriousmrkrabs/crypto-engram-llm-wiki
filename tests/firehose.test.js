@@ -182,10 +182,11 @@ test('fetchLatestNews sends the score floor only when it is above zero', async (
   assert.equal('score' in JSON.parse(open.calls[0].options.body), false);
 });
 
-test('fetchLatestNews sends coins as a comma list and q as a full-text string', async () => {
+test('fetchLatestNews sends coins as a JSON array and q as a full-text string', async () => {
   const coined = fakeFetchReturning({ data: [], total: 0 });
   await fetchLatestNews({ token: 't', coins: ['HYPE', 'BTC', 'SOL'], fetchImpl: coined.impl });
-  assert.equal(JSON.parse(coined.calls[0].options.body).coins, 'HYPE,BTC,SOL');
+  // 6551 `coins` is a Go []string — send a JSON array, not a comma string.
+  assert.deepEqual(JSON.parse(coined.calls[0].options.body).coins, ['HYPE', 'BTC', 'SOL']);
 
   const themed = fakeFetchReturning({ data: [], total: 0 });
   await fetchLatestNews({ token: 't', q: 'prediction market', fetchImpl: themed.impl });
