@@ -1,38 +1,86 @@
 # Content Intelligence System
 
-Local-first source ingestion scaffold for a future Hermes Agent operated crypto and AI intelligence vault.
+**A personalized crypto/AI knowledge brain — an LLM-maintained wiki fed by an always-on, pre-scored news firehose.**
 
-The vault is an **LLM-Wiki** (DECISION #9). Node ingests raw evidence and writes only mechanical artifacts; an agent compiles the wiki pages, each citing `sources[]` with a `confidence`. Node writes no page into an agent-owned root (#17/#22). It does not publish content, trade, move funds, or run browser automation.
+> Inspired **solely** by Andrej Karpathy's idea of an **LLM-maintained wiki**: a knowledge base an LLM continuously compiles, cross-links, and cites — not a pile of documents you re-embed on every query. This repo is one person's crypto/AI-focused take on that idea.
 
-The **firehose** (#25, issue #3) is the one real network surface: a scheduled pull from the 6551 opennews API into a cold store outside the vault, posted to a Discord channel by a tap-to-save bot. Only items the human promotes (💾) cross into `00_Inbox` (#12).
+> ⚠️ **This is an MVP design, not a committed roadmap.** Parts of the system are built and running; parts are designed but not yet wired; parts are still aspirational. Every component is labeled with an honest status so nothing reads as more finished than it is. The design is still being decided and amended.
+>
+> **Status legend:** ✅ Built · 🟡 Designed (spec locked, not wired) · ⬜ Planned (aspirational)
 
-Design decisions live in `docs/DECISIONS.md` (#1–#25) and are authoritative over this file.
+Full design: **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** · Decisions: [`docs/DECISIONS.md`](docs/DECISIONS.md)
 
-## Architecture
+---
 
-- Codex builds and maintains this local scaffold.
-- Hermes will later orchestrate ingestion and brief generation.
-- Obsidian is the storage and review layer.
-- MCP tools will later act as external source adapters.
-- The human user remains the final reviewer and approver.
+## Why not just RAG?
 
-The runtime flow is:
+The goal is to **retrieve the most accurate answer for the fewest tokens** — accuracy · relevancy · cost-efficiency.
+
+Standard RAG decides relevance *at query time* by embedding everything and ranking by vector similarity. A junk tweet where someone is just yapping and happens to type `$HYPE` ranks **high** for "HYPE news" — because it *is* topically similar, and similarity is all RAG sees.
+
+This system decides relevance **at ingest**, stores it as **structured tags + scores**, and retrieves with a **deterministic filter** — no embeddings, no vector DB, no per-query model call.
+
+| | Standard RAG | This system |
+|---|---|---|
+| Relevance decided | Query time (cosine similarity) | **Ingest time (structured tags + scores)** |
+| Retrieval | Vector top-k over raw text | **Filter: `coins ∪ themes` AND `score/since/signal`** |
+| Junk `$HYPE` tweet | Retrieved | **Filtered out** |
+| Cost per query | Embed + ANN search | **JSON filter (≈ free)** |
+| Into the model | Top-k raw chunks | **Pre-filtered, capped, lean cards** |
+
+The result is a **personalized knowledge brain**: it only reasons over material *you* chose to watch, pre-scored for quality, with junk gated before it can dilute an answer. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how a junk `$HYPE` tweet is told apart from real signal.
+
+---
+
+## How it works
+
+Two clocks, two tiers:
 
 ```text
-node  (free, continuous):  source adapter -> raw evidence -> SourceItem -> dedupe -> classify -> timeline/queue projections -> system indexes -> index.md + log.md
-agent (scheduled, /compile): raw evidence -> analyze -> source-summaries, topics, entities with sources[] + confidence -> lint:wiki
+Tier 1 — Firehose (node, free, continuous)
+  sources → tag (coins · themes · aiRating) → cold store (deduped) → Discord (facet tags) → 💾 promote
+
+Tier 2 — LLM-Wiki (agent / Hermes, scheduled, costs tokens)
+  raw + digest → analyze → compile Topics / Entities / Sources / Synthesis
+  every page cites sources[] + confidence → lint must pass
 ```
 
-Design rule:
+**Ongoing delivery** comes from multiple surfaces feeding one cold store:
 
-```text
-00_Inbox/ = raw evidence only
-10_Topics/ = evolving understanding
-20_Entities/ = people, protocols, companies, chains, tokens
-30_Timelines/ = chronological memory
-60_Discord_Queues/ = notification drafts for Hermes
-.system/ = dedupe, source, routing, and ingest state
+- **opennews (6551 REST)** — curated crypto/AI news, AI-rated · ✅ Built
+- **opentwitter (MCP)** — watched-account posts · 🟡 Designed
+- **Web Clipper** — human-clipped articles · 🟡 Designed
+- **Hermes X agent** — X bookmarks 💾-saved into the vault · 🟡 Designed
+
+**Deep-fetch (full content)** ⬜ Planned — Firecrawl (articles → clean markdown), xcrawl (X threads), Playwright (auth/JS/local-first fallback).
+
+**Onchain research MCPs** ⬜ Planned — Dune, Allium, Herd, so the agent can check claims against chain data during compile.
+
+```mermaid
+flowchart LR
+    S["Sources:<br/>opennews ✅ · opentwitter 🟡<br/>Web Clipper 🟡 · Hermes X 🟡"] --> CS["Cold store<br/>(tagged, deduped) ✅"]
+    CS --> D["Discord curated feed ✅"] --> P["💾 promote → 00_Inbox"]
+    CS --> Q["queryColdStore ✅"]
+    P --> H["Hermes /compile 🟡"]
+    Q --> H
+    OC["Dune · Allium · Herd ⬜"] -.research.-> H
+    DF["Firecrawl · xcrawl · Playwright ⬜"] -.enrich.-> CS
+    H --> W["LLM-Wiki:<br/>sources[] + confidence"] --> A["Fewest-token cited answers"]
 ```
+
+---
+
+## What's actually built ✅
+
+- opennews firehose: curated union feed (coins pull + N theme pulls), dedup, pagination-for-recall, 4×/day cadence, cold store as seen-set.
+- Facet tagging (`watchlist_coins`, `matched_themes`, `aiRating`) on every item.
+- Discord curated channel with facet tag lines + 💾 tap-to-save promote.
+- Deterministic retrieval: `queryColdStore` + `formatDigest` + `npm run digest`.
+- Vault scaffold, `/compile` frontmatter contract, `lint:wiki`, 76 passing tests.
+
+See the full [status matrix](docs/ARCHITECTURE.md#status-matrix) for what's designed vs planned.
+
+---
 
 ## Setup
 
@@ -47,12 +95,6 @@ Open the vault in Obsidian:
 open -a Obsidian "/Users/angjingkang/content-intelligence-system/vault/Content_Intelligence_Vault"
 ```
 
-If Obsidian does not open it as a vault automatically, choose "Open folder as vault" and select:
-
-```text
-/Users/angjingkang/content-intelligence-system/vault/Content_Intelligence_Vault
-```
-
 ## Commands
 
 ```sh
@@ -61,104 +103,29 @@ npm run ingest:mock
 npm run ingest:manual
 npm run ingest:web-clipper
 npm run ingest:opennews
-npm run bot:start
+npm run bot:start        # firehose → Discord, with 💾 tap-to-save
+npm run digest -- --coin HYPE --since 24h   # deterministic retrieval
 npm run lint:wiki
 npm run test
 ```
 
-`ingest:opennews` and `bot:start` read `OPENNEWS_TOKEN` (and the bot also
-`DISCORD_BOT_TOKEN` + `DISCORD_CHANNEL_ID`) from `.env` — copy `.env.example`
-and fill in real values; `.env` is gitignored and never committed.
+`ingest:opennews` and `bot:start` read `OPENNEWS_TOKEN` (and the bot also `DISCORD_BOT_TOKEN` + `DISCORD_CHANNEL_ID`) from `.env` — copy `.env.example` and fill in real values; `.env` is gitignored and never committed. Firehose filters are documented in [`docs/FIREHOSE_FILTERS.md`](docs/FIREHOSE_FILTERS.md).
 
-Manual Markdown raw drops go in:
+## Design rule
 
 ```text
-vault/Content_Intelligence_Vault/00_Inbox/Manual_MD/_Raw_Drops
+00_Inbox/    raw evidence only, source of truth, never edited or deleted
+05_Sources/  agent: one source-summary per raw doc
+10_Topics/   agent: evolving understanding
+20_Entities/ agent: people, protocols, companies, chains, tokens
+30_Timelines/ node: chronological memory
+60_Discord_Queues/ node: notification drafts for Hermes
+.system/     node: dedupe, source, routing, ingest scores (never on a page)
+firehose/    node: cold store, OUTSIDE the vault, gitignored — stored, never indexed
 ```
 
-Web Clipper Markdown raw drops go in:
+Node and agent own **different files** (no skeleton-then-enrich). Retrieval reads the compiled + indexed layer only; uncompiled raw is stored but not indexed, reached only by escalation through `sources[]`.
 
-```text
-vault/Content_Intelligence_Vault/00_Inbox/Web_Clipper/_Raw_Drops
-```
+## Safety / scope
 
-Raw drops are never deleted or moved by V1. Processed knowledge is written to topic pages, entity pages, timelines, Discord queue files, and `.system` indexes. The pipeline no longer creates normalized notes inside `00_Inbox`.
-
-## Mock Ingestion
-
-Run:
-
-```sh
-npm run ingest:mock
-```
-
-This creates raw source files and wiki projections for:
-
-- X post about HyperliquidR sharing The Almanack of Hyperliquid
-- Linked article: `https://www.hyperliquidr.xyz/post/the-almanack-of-hyperliquid`
-- X bookmark about Hyperliquid HIP-4
-- News item about tokenized stocks
-- AI agent news item
-- Stablecoin/RWA item
-- Wallet strategy item
-
-Running mock ingestion again should skip duplicates using `.system/dedupe-index.json`.
-
-## Validate The Compiled-Page Contract
-
-Run:
-
-```sh
-npm run lint:wiki
-```
-
-Every page in an agent-owned root must carry the six frontmatter fields of #20, and every `sources[]` entry must resolve to a real file under `00_Inbox`. A page with no frontmatter is a violation, never a skip (#23).
-
-Synthesis and daily briefs are agent-compiled via `/compile` (#17) — node does not generate them.
-
-## Future Hermes Integration Plan
-
-Hermes will later call local commands or equivalent module functions to:
-
-- ingest x-bookmarks
-- ingest opennews
-- ingest opentwitter
-- ingest daily-news
-- compile raw evidence into wiki pages
-- draft content idea from selected note
-
-Hermes should remain the orchestrator/operator. This project stays as the local ingestion and vault-writing substrate.
-
-## The Firehose (opennews, #25)
-
-```text
-timer (in the bot) -> pull 6551 /open/news_search -> cold store firehose/opennews/
-   -> post new items to the Discord channel -> human taps 💾 on a message
-   -> promote that one item -> 00_Inbox/OpenNews -> /compile (unchanged)
-```
-
-- The cold store lives **outside** the vault (`firehose/`, gitignored): stored, never indexed, never retrieved (#13). Its id set is the pull dedupe.
-- Arrival is **scheduled pull** (default every 20 min), not a live WebSocket — deliberate (#25 addendum): delivery is token-free plumbing either way, clumped arrivals nudge batched compiles, and a failed tick just catches up next tick.
-- Each Discord message embeds a `` `opennews:<id>` `` marker; the 💾 reaction resolves it back to the cold-store item and promotes exactly that item. Promote is the **only** firehose → wiki crossing (#12).
-- The bot needs the **Message Content intent** enabled in the Discord developer portal, and `discord.js` is the project's sole approved dependency (recorded in CLAUDE.md).
-
-Source status: `opennews` = **real** (REST pull). `opentwitter` = pull adapter planned on the same pattern; live watch-push deferred to Hermes. `daily-news` = **dropped** (redundant under the premium token; free fallback only — `docs/sources/6551-mcp-reference.md`). `opentrade` = disabled, read-only later at most.
-
-## Intentionally Not Built Yet
-
-- Auto-posting
-- Instagram, TikTok, or X publishing
-- Trading
-- Swaps
-- Wallet signing
-- Token transfers
-- Browser automation
-- Deleting notes
-- Rewriting the full vault
-- Embeddings or full RAG
-- Live WebSocket push (per-channel upgrade only if a trading-latency source appears, #25)
-- The raw + signal two-channel split (single channel first; aiRating is preserved in raw, so score-gating needs no rework)
-
-## Safety
-
-The writer resolves all paths against the configured vault root, blocks path traversal, and writes only inside `/Users/angjingkang/content-intelligence-system/vault/Content_Intelligence_Vault` at runtime. Production code does not delete raw source files.
+Not an autoposter, trading bot, wallet signer, or full RAG/embeddings system. No browser automation in the node runtime. The writer resolves all paths against the vault root, blocks path traversal, and never deletes raw source files. `discord.js` is the sole external dependency; the 6551 pull is zero-dep native `fetch`. The deep-fetch and onchain-MCP layers are **designed, not deployed**.
