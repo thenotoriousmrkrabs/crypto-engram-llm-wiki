@@ -1,7 +1,7 @@
 {
-  "name": "content-intelligence-system",
+  "name": "crypto-engram-llm-wiki",
   "version": "0.1.0",
-  "description": "Local-first Obsidian source ingestion scaffold for crypto and AI intelligence.",
+  "description": "Crypto Engram LLM-Wiki — a personalized crypto/AI knowledge brain: an LLM-maintained wiki fed by an always-on, pre-scored news firehose.",
   "type": "module",
   "private": true,
   "scripts": {

@@ -1,6 +1,8 @@
-# Content Intelligence System
+# Crypto Engram LLM-Wiki
 
 **A personalized crypto/AI knowledge brain — an LLM-maintained wiki fed by an always-on, pre-scored news firehose.**
+
+*An **engram** is a memory trace the brain physically encodes. This system is the same idea for crypto/AI research: a noisy firehose is scored at ingest and consolidated into cited, confidence-scored knowledge — it selectively encodes what matters instead of storing everything (the anti-RAG).*
 
 > Inspired **solely** by Andrej Karpathy's idea of an **LLM-maintained wiki**: a knowledge base an LLM continuously compiles, cross-links, and cites — not a pile of documents you re-embed on every query. This repo is one person's crypto/AI-focused take on that idea.
 
