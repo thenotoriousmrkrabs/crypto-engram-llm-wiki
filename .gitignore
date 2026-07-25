@@ -1,7 +1,11 @@
 node_modules/
 .DS_Store
 .tmp-tests/
-firehose/
+# Cold-store data at the repo root only — src/main/firehose is source code.
+/firehose/
+
+# Secrets — real tokens live only here; .env.example carries placeholders.
+.env
 
 # Raw evidence drops — your accumulating reading history (#16 forward-accumulation).
 # Git history is permanent, so keep real clips out of it by default rather than

@@ -418,3 +418,60 @@ The first `/compile` surfaced these: retrieval quality is capped by capture qual
 Status:
 
 Accepted. Automatic bundle-detection from real clipped links, and the X fetch adapter, remain deferred builds (#7); the capture policy and dial distinction are binding now.
+
+## 25. 6551 MCP Firehose: Runtime Topology, Two-Channel opennews, Watch-Driven opentwitter, daily-news Dropped
+
+Decision:
+
+The three 6551Team MCPs (opennews-mcp, opentwitter-mcp, daily-news) become the first real firehose sources (#7/#8). A single premium `OPENNEWS_TOKEN` covers opennews + opentwitter; daily-news is free/no-key. All hit the same 6551 backend (`https://ai.6551.io`). Reference: `docs/sources/6551-mcp-reference.md`.
+
+**Runtime topology — three roles, kept separate.** The always-on connector is neither Claude Code nor Hermes; it is a plain **node relay service** (dumb plumbing, no AI):
+
+- **Builder** (Codex / Claude Code): build-time only. Writes the relay + compile procedure. Not in the runtime loop; never a persistent 3rd-party connector.
+- **Relay** (node service, always-on, no AI): opens the 6551 **WebSocket directly** (`wss://ai.6551.io/open/news_wss?token=`, `.../twitter_wss?token=`) and forwards events to Discord. Holds the Discord bot token + 6551 token. Does dedup, routing, posting. Needs no MCP server and no agent to run.
+- **Brain** (Hermes, on the user's Codex account, in Discord): on-demand judgment only — compile / summarize / research, triggered by the relay on tap-to-save or a typed command. Uses the **MCP servers** (opennews-mcp, opentwitter-mcp) for on-demand *pull* queries.
+
+This is the #17 seam at runtime: mechanical (relay, node, 24/7) vs judgment (Hermes, on demand). The brain is swappable (Codex/Claude/Hermes) because the relay carries the persistent connection, not the agent. Resolves the "Claude Code can't be a persistent 3rd-party connector" constraint — it never needs to be.
+
+**Push vs pull split.** Relay uses the WebSocket **push** path (talks to 6551 directly, no MCP). The command center uses the MCP **pull** tools (`get_high_score_news`, `search_twitter`, etc.) via Hermes. MCP is a wrapper for agent use; the relay bypasses it.
+
+**opennews — two channels (revives #21's filter-level split, now on a real mechanic).**
+- `#opennews-raw`: subscribe wide, forward everything (`news.update` + `news.ai_update`). The complete, fast/breaking backstop (full recall, #12).
+- `#opennews-signal`: same pipe, forward only `news.ai_update`, gated/sorted by `aiRating.score`. The curated, confirmed/rated view.
+- Cross-channel overlap is **intentional** (option A): a high-quality item appears in both — raw as the complete log, signal as the shortlist you actually read; raw gets it first (unrated), signal later (scored). Never deduped across channels.
+- Within a channel, **dedup by event `id`** to collapse the async double-hit (`news.update` then `news.ai_update`, same `id`). Relay's job; 6551 does not dedup.
+- "Crypto only" is approximated by `hasCoin:true` + naming crypto sources under the `news` engine (no `category=crypto` exists). Score/keyword/signal filters exist only on the pull tools, not the subscribe params — fine score-gating happens in the relay on `aiRating.score`.
+
+**opentwitter — watch-driven, connect-now/populate-later.** `twitter.subscribe` pushes **only accounts on the server-side watch list**; empty watch = silent channel (opposite of opennews, where empty = everything). Connect the plumbing now with an empty watch; Hermes populates it later via `add_twitter_watch` per KOL. Pull/search tools work immediately even with an empty watch (command center usable day one). The watch list is **server-side state tied to the token** — audited via `get_twitter_watch`; open question deferred: purely-Hermes-managed vs reconciled against `config/watchlists.yaml`.
+
+**daily-news — dropped.** Free, no-key, pull-only, no push — a thin subset of the same 6551 backend opennews already returns in full under premium. Not wired as a channel. Kept documented in the reference only as a zero-auth **free fallback** if the token ever lapses.
+
+**Architectural line crossed (deliberate).** This slice introduces, for the first time, real network I/O, an always-on process, and likely one runtime dependency (a WebSocket/Discord client) — all previously under README's *Intentionally Not Built Yet* and the zero-dependency rule. Crossing is intentional and scoped to the relay. Any dependency add still requires explicit approval (existing constraint unchanged). The wiki boundary is untouched: relay → Discord (read) + cold store; only human-promoted items cross into the wiki (#11/#12). These MCPs never auto-feed the wiki.
+
+Reason:
+
+Settles the firehose design that #7/#8 deferred, using the actual 6551 tool/endpoint contract rather than the earlier `Future`-marked guesses in `config/sources.yaml`. The two-channel opennews gives a complete backstop plus a curated view off one subscription; the id-dedup handles 6551's async raw-then-scored delivery; watch-driven opentwitter matches how the API actually pushes; dropping daily-news avoids a redundant channel. Writing the runtime topology down prevents the recurring blur between builder, relay, and brain — and records that the persistent Discord/WebSocket connection is dumb node code, not an AI session, so no agent needs to "stay connected." grilling was deliberately skipped: the channel/feature design was fully resolved interactively (active/passive, ai_update-inside-subscribe, overlap, dedup), leaving only tunable thresholds and the network-line decision — none of which need an interview.
+
+Status:
+
+Accepted (design). Build deferred to the `/request-refactor-plan` breakdown: the relay (network line + WebSocket client + dedup + Discord routing) sequenced as tiny commits, operational failure-modes (reconnect, 6551 downtime, token expiry, Discord rate-limits, dedup window) addressed there. Signal-channel score threshold and whether opentwitter gets its own raw/signal pair are post-traffic tunables. daily-news adapter remains unbuilt (free-fallback note only).
+
+### #25 Addendum — Build Shape (issue #3): Scheduled Pull Over Live WebSocket; Bot + Promote Mechanics
+
+Decision:
+
+The first firehose build (issue #3) arrives by **scheduled pull, not live WebSocket**, and interaction is a **discord.js gateway bot** with a 💾 tap-to-save:
+
+- **Scheduled over live.** Delivery to Discord is plumbing (HTTP, zero LLM tokens) either way; tokens are spent only at compile-on-promote, which the human tap gates — so live buys nothing on the overriding token goal. Scheduled clumps arrivals, nudging batched promotes → batched compiles that amortize per-call overhead. It also avoids the persistent socket, reconnect/backoff, and the raw-then-scored async double-hit entirely: a failed tick just catches up next tick. Default interval 20 min (`FIREHOSE_PULL_INTERVAL_MINUTES`), modest so pulls stay under the ~100-row `news_search` cap. Live remains a per-channel upgrade **only** if a trading-latency source ever appears; because arrival is decoupled from the bot, that swap touches neither promote nor tap-to-save.
+- **Bot, not webhook**, because tap-to-save must *receive* reactions; `discord.js` is the sole approved dependency (recorded in CLAUDE.md). The bot is a thin shell over tested functions; only its live Discord/timer I/O is smoke-tested.
+- **Marker-based promote.** Every posted message embeds a `` `source:id` `` line; the reaction handler parses it and promotes exactly that cold-store item through the existing ingestion pipeline into `00_Inbox/OpenNews` — the only firehose → wiki crossing (#12), deduped and logged like any ingest. Markers survive bot restarts (no in-memory message map).
+- **Single reading channel first.** The raw/signal two-channel split is deferred until real traffic justifies it; `aiRating` (score/grade/signal) is preserved under `raw`, so adding score-gating later needs no rework.
+- The 6551 REST contract was **verified against the opennews-mcp server source** (Bearer auth, `POST /open/news_search` with a JSON body, `{ data, total }`), superseding the README-level guesses noted in `docs/sources/6551-mcp-reference.md`. **Correction (2026-07-21):** an earlier note here recorded this as `GET`, and shipped code sent `GET`, which the `ai.6551.io` gateway answered with a live `404` on the path (not `405`). Re-verified against `src/opennews_mcp/api_client.py` (`self._request("POST", …/open/news_search, json=body)`) and fixed to `POST` + JSON body.
+
+Reason:
+
+Recorded so the scheduled-vs-live choice reads as deliberate token/workload economics, not a temporary shortcut — and so nobody "upgrades" to the WebSocket relay without a trading-latency case.
+
+Status:
+
+Accepted; built on branch `feat/opennews-firehose` (issue #3, commits 1–14).
