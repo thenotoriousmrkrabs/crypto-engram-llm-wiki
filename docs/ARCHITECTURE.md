@@ -1,4 +1,6 @@
-# Architecture — A Personalized Crypto/AI Knowledge Brain
+# Crypto Engram LLM-Wiki — Architecture
+
+*A personalized crypto/AI knowledge brain.*
 
 > **Status legend:** ✅ Built · 🟡 Designed (spec locked, not wired) · ⬜ Planned (aspirational)
 >
