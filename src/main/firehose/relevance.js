@@ -7,6 +7,19 @@ import { normalizeUrl, normalizePart } from '../utils/dedupe.js';
 // reposts of one story pile up. contentKey collapses those: it identifies an
 // item by its CONTENT, host-agnostic, so 3 copies of one Solana tweet become 1.
 
+// Lever 2 — untagged drop. An item is on-watchlist only if it carries at least
+// one curated facet: a watchlist coin OR a matched theme. Untagged items (neither)
+// came from the coins-query's loose API matches — the API returned an article
+// whose coins don't actually intersect the watchlist and no theme surfaced it —
+// so they are noise ("left in raw"). They are filtered from the reading/promote
+// surface, NOT from the cold store: the store is the pull job's seen-set, so
+// dropping them at store time would make the pager re-fetch them every tick.
+export function hasFacet(itemOrCard) {
+  const coins = itemOrCard.watchlist_coins || itemOrCard.coins || [];
+  const themes = itemOrCard.matched_themes || itemOrCard.themes || [];
+  return coins.length > 0 || themes.length > 0;
+}
+
 // A stable, host-agnostic key for one item or card. Priority:
 //   1. a tweet/status id  -> `tweet:<id>`   (x.com == twitter.com == mobile)
 //   2. any other url       -> `url:<normalized>` (tracking params stripped)

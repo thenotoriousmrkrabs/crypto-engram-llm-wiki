@@ -3,7 +3,7 @@ import fsSync from 'node:fs';
 import path from 'node:path';
 import { defaultColdStoreRoot } from './cold-store.js';
 import { cleanText } from './text-clean.js';
-import { dedupeByContent } from './relevance.js';
+import { dedupeByContent, hasFacet } from './relevance.js';
 
 // Deterministic retrieval over the firehose cold store (the Hermes digest
 // foundation). No AI, no network: it filters the tagged cold-store items by
@@ -24,7 +24,8 @@ export async function queryColdStore({
   minScore = 0,
   signal,
   limit,
-  dedupe = true
+  dedupe = true,
+  requireFacet = true
 } = {}) {
   const dir = path.join(root, source);
   if (!fsSync.existsSync(dir)) {
@@ -44,7 +45,7 @@ export async function queryColdStore({
     } catch {
       continue; // a half-written or corrupt file must not sink the whole query
     }
-    if (passes(item, { wantCoins, wantThemes, sinceMs, minScore, signal })) {
+    if (passes(item, { wantCoins, wantThemes, sinceMs, minScore, signal, requireFacet })) {
       cards.push(toCard(item));
     }
   }
@@ -57,7 +58,12 @@ export async function queryColdStore({
   return typeof limit === 'number' ? unique.slice(0, limit) : unique;
 }
 
-function passes(item, { wantCoins, wantThemes, sinceMs, minScore, signal }) {
+function passes(item, { wantCoins, wantThemes, sinceMs, minScore, signal, requireFacet }) {
+  // Lever 2: an item with neither a watchlist coin nor a matched theme never
+  // reaches the reading/promote surface — it matched nothing curated.
+  if (requireFacet && !hasFacet(item)) {
+    return false;
+  }
   const rating = item.raw?.aiRating || {};
   if (Number(rating.score ?? 0) < minScore) {
     return false;
