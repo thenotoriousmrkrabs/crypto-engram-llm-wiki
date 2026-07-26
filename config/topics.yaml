@@ -1,7 +1,16 @@
+# Reference only. The runtime source of truth for topics is
+# src/main/config/topics.js (TOPIC_RULES + TOPIC_HOMES); no code reads this file.
+# Kept in sync by hand so the topic set is greppable outside JS.
+#
+# Every home topic below owns a 10_Topics/ folder, a timeline, a Discord queue,
+# and a channel. The classifier can never emit a topic without a home here.
 topics:
   - hyperliquid
-  - ai_agents
+  - ai_agents            # also absorbs generic "ai" (llm / model / inference / research)
   - tokenized_stocks
-  - stablecoins_rwa
+  - stablecoins          # Stablecoins_RWA
   - wallets
-  - crypto_market_structure
+  - prediction_markets   # Polymarket / Kalshi
+  - defi                 # also absorbs dex_aggregators (aggregator / intents / routing)
+  - infrastructure       # absorbs chains (L1/L2s) + infra (nodes / validators / middleware)
+  - crypto               # Crypto_Market_Structure — catch-all; also absorbs regulation

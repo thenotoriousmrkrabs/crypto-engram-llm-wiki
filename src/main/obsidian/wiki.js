@@ -13,69 +13,9 @@ import {
 } from './writer.js';
 import { normalizePart, normalizeUrl } from '../utils/dedupe.js';
 import { assertInside, toVaultRelative } from '../utils/paths.js';
+import { topicInfo } from '../config/topics.js';
 
-const TOPICS = {
-  hyperliquid: {
-    display: 'Hyperliquid',
-    folder: '10_Topics/Hyperliquid',
-    page: '10_Topics/Hyperliquid/Hyperliquid.md',
-    timeline: '30_Timelines/Hyperliquid.md',
-    queue: '60_Discord_Queues/hyperliquid.md',
-    channel: 'hyperliquid'
-  },
-  ai_agents: {
-    display: 'AI Agents',
-    folder: '10_Topics/AI_Agents',
-    page: '10_Topics/AI_Agents/AI_Agents.md',
-    timeline: '30_Timelines/AI_Agents.md',
-    queue: '60_Discord_Queues/ai-agent.md',
-    channel: 'ai-agent'
-  },
-  tokenized_stocks: {
-    display: 'Tokenized Stocks',
-    folder: '10_Topics/Tokenized_Stocks',
-    page: '10_Topics/Tokenized_Stocks/Tokenized_Stocks.md',
-    timeline: '30_Timelines/Tokenized_Stocks.md',
-    queue: '60_Discord_Queues/tokenized-stocks.md',
-    channel: 'tokenized-stocks'
-  },
-  stablecoins: {
-    display: 'Stablecoins RWA',
-    folder: '10_Topics/Stablecoins_RWA',
-    page: '10_Topics/Stablecoins_RWA/Stablecoins_RWA.md',
-    timeline: '30_Timelines/Stablecoins_RWA.md',
-    queue: '60_Discord_Queues/stablecoins-rwa.md',
-    channel: 'stablecoins-rwa'
-  },
-  rwa: {
-    display: 'Stablecoins RWA',
-    folder: '10_Topics/Stablecoins_RWA',
-    page: '10_Topics/Stablecoins_RWA/Stablecoins_RWA.md',
-    timeline: '30_Timelines/Stablecoins_RWA.md',
-    queue: '60_Discord_Queues/stablecoins-rwa.md',
-    channel: 'stablecoins-rwa'
-  },
-  wallets: {
-    display: 'Wallets',
-    folder: '10_Topics/Wallets',
-    page: '10_Topics/Wallets/Wallets.md',
-    timeline: '30_Timelines/Wallets.md',
-    queue: '60_Discord_Queues/wallet-strategy.md',
-    channel: 'wallet-strategy'
-  },
-  crypto: {
-    display: 'Crypto Market Structure',
-    folder: '10_Topics/Crypto_Market_Structure',
-    page: '10_Topics/Crypto_Market_Structure/Crypto_Market_Structure.md',
-    timeline: '30_Timelines/Crypto_Market_Structure.md',
-    queue: '60_Discord_Queues/crypto-market-structure.md',
-    channel: 'crypto-market-structure'
-  }
-};
-
-export function topicInfo(topic) {
-  return TOPICS[topic] || TOPICS.crypto;
-}
+export { topicInfo };
 
 export async function saveOrPreserveRawSource({ vaultRoot, item, now = new Date() }) {
   const safeVaultRoot = await ensureVaultStructure({ vaultRoot });

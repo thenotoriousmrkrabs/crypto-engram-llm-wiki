@@ -1,20 +1,5 @@
 import { compactWhitespace } from '../utils/markdown.js';
-
-const TOPIC_RULES = [
-  { topic: 'hyperliquid', tags: ['hyperliquid'], keywords: ['hyperliquid', 'hip-4', 'hip4', 'hyperevm'] },
-  { topic: 'tokenized_stocks', tags: ['tokenized_stocks', 'rwa'], keywords: ['tokenized stock', 'tokenized stocks', 'equity settlement', 'equities onchain'] },
-  { topic: 'stablecoins', tags: ['stablecoins', 'rwa'], keywords: ['stablecoin', 'stablecoins', 'usdc', 'usdt', 'rwa', 'treasury'] },
-  { topic: 'ai_agents', tags: ['ai_agents', 'ai'], keywords: ['ai agent', 'ai agents', 'agentic', 'autonomous agent'] },
-  { topic: 'wallets', tags: ['wallets'], keywords: ['wallet', 'wallets', 'smart account', 'embedded account', 'account abstraction'] },
-  { topic: 'prediction_markets', tags: ['prediction_markets'], keywords: ['prediction market', 'polymarket', 'kalshi'] },
-  { topic: 'dex_aggregators', tags: ['dex_aggregators', 'defi'], keywords: ['dex aggregator', 'aggregator', 'intents', 'routing'] },
-  { topic: 'defi', tags: ['defi'], keywords: ['defi', 'liquidity', 'yield', 'lending'] },
-  { topic: 'chains', tags: ['chains'], keywords: ['base', 'solana', 'bnb', 'megaeth', 'ethereum', 'chain'] },
-  { topic: 'ai', tags: ['ai'], keywords: ['llm', 'model', 'inference', 'grok', 'openai', 'anthropic', 'research'] },
-  { topic: 'regulation', tags: ['regulation'], keywords: ['sec', 'cftc', 'regulation', 'regulated', 'compliance'] },
-  { topic: 'infra', tags: ['infra'], keywords: ['infrastructure', 'middleware', 'node', 'validator'] },
-  { topic: 'crypto', tags: ['crypto'], keywords: ['crypto', 'token', 'protocol', 'onchain'] }
-];
+import { TOPIC_RULES, CATCH_ALL_TOPIC } from '../config/topics.js';
 
 const ENTITY_RULES = [
   { match: 'hyperliquid', entity: 'Hyperliquid', kind: 'protocol', chains: ['Hyperliquid'], narratives: ['Hyperliquid ecosystem'] },
@@ -65,7 +50,7 @@ export function classifySourceItem(item) {
     }
   }
 
-  const topic = topicRule?.topic || 'crypto';
+  const topic = topicRule?.home || CATCH_ALL_TOPIC;
   return {
     topic,
     entities: unique(entities),
