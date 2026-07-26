@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, StringSelectMenuBuilder, ActionRowBuilder } from 'discord.js';
+import { Client, GatewayIntentBits, StringSelectMenuBuilder, ActionRowBuilder, MessageFlags } from 'discord.js';
 import { loadFirehoseConfig } from './config.js';
 import { OpenNewsMCPAdapter } from '../adapters/opennews-mcp-adapter.js';
 import { runPullAndPost } from './pull-and-post.js';
@@ -134,7 +134,7 @@ export function createFirehoseBot({ env = process.env, log = console } = {}) {
       if (!interaction.isStringSelectMenu?.() || interaction.customId !== SUMMARY_PROMOTE_ID) {
         return;
       }
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const refs = interaction.values.map(refFromValue).filter(Boolean);
       const result = await promoteItems({ vaultRoot, refs });
       await interaction.editReply(formatPromoteResult(result));

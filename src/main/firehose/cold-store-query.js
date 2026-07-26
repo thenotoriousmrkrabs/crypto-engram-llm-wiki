@@ -3,6 +3,7 @@ import fsSync from 'node:fs';
 import path from 'node:path';
 import { defaultColdStoreRoot } from './cold-store.js';
 import { cleanText } from './text-clean.js';
+import { dedupeByContent } from './relevance.js';
 
 // Deterministic retrieval over the firehose cold store (the Hermes digest
 // foundation). No AI, no network: it filters the tagged cold-store items by
@@ -22,7 +23,8 @@ export async function queryColdStore({
   since,
   minScore = 0,
   signal,
-  limit
+  limit,
+  dedupe = true
 } = {}) {
   const dir = path.join(root, source);
   if (!fsSync.existsSync(dir)) {
@@ -47,8 +49,12 @@ export async function queryColdStore({
     }
   }
 
-  cards.sort((a, b) => b.tsMs - a.tsMs);
-  return typeof limit === 'number' ? cards.slice(0, limit) : cards;
+  // Collapse cross-source duplicates (same tweet from x.com/twitter.com, reposts)
+  // before sorting, keeping the best-rated copy — the reading surface shows one
+  // card per story, not three. Dedup by content, then order newest-first.
+  const unique = dedupe ? dedupeByContent(cards) : cards;
+  unique.sort((a, b) => b.tsMs - a.tsMs);
+  return typeof limit === 'number' ? unique.slice(0, limit) : unique;
 }
 
 function passes(item, { wantCoins, wantThemes, sinceMs, minScore, signal }) {
