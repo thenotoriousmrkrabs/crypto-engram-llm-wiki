@@ -92,10 +92,17 @@ export function loadFirehoseConfig({ env = process.env } = {}) {
     );
   }
 
+  // Where `!summarize` posts and listens. Optional — falls back to the raw
+  // firehose channel so a single-channel setup still works, but pointing it at a
+  // separate channel is the intended two-surface layout (raw archive vs. the
+  // summary you actually read).
+  const summaryChannelId = String(env.DISCORD_SUMMARY_CHANNEL_ID || env.DISCORD_CHANNEL_ID).trim();
+
   return {
     opennewsToken: String(env.OPENNEWS_TOKEN).trim(),
     discordBotToken: String(env.DISCORD_BOT_TOKEN).trim(),
     discordChannelId: String(env.DISCORD_CHANNEL_ID).trim(),
+    summaryChannelId,
     pullIntervalMs: intervalMinutes * 60 * 1000,
     minScore,
     langs,

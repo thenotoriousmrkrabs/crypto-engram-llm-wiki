@@ -30,3 +30,38 @@ export async function promoteItem({
     result
   };
 }
+
+// Batch promote — the summary-channel path (replaces per-message 💾): a human
+// multi-selects items from one summary, and all of them cross the firehose->wiki
+// gate in one action. Each ref is promoted independently so one bad/unknown id
+// (or a mid-batch dedupe) never aborts the rest; the caller reports per item.
+export async function promoteItems({
+  vaultRoot,
+  refs = [],
+  coldStoreRoot = defaultColdStoreRoot(),
+  now = new Date()
+}) {
+  const results = [];
+  const seen = new Set();
+  for (const ref of refs) {
+    const source = ref.source;
+    const id = String(ref.id);
+    const key = `${source}:${id}`;
+    if (seen.has(key)) {
+      continue; // the same item picked twice in one selection promotes once
+    }
+    seen.add(key);
+    try {
+      const one = await promoteItem({ vaultRoot, source, id, coldStoreRoot, now });
+      results.push({ source, id, promoted: one.promoted, duplicate: one.duplicate, rawPath: one.rawPath });
+    } catch (error) {
+      results.push({ source, id, promoted: false, duplicate: false, rawPath: '', error: error.message });
+    }
+  }
+  return {
+    results,
+    promoted: results.filter((result) => result.promoted).length,
+    duplicate: results.filter((result) => result.duplicate).length,
+    failed: results.filter((result) => result.error).length
+  };
+}

@@ -11,7 +11,7 @@ import { runPullJob } from '../src/main/firehose/pull-job.js';
 import { formatItemMessage, parseMarker, postItems } from '../src/main/firehose/discord-poster.js';
 import { runPullAndPost } from '../src/main/firehose/pull-and-post.js';
 import { cleanText, detectLang, keepByLang } from '../src/main/firehose/text-clean.js';
-import { promoteItem } from '../src/main/firehose/promote.js';
+import { promoteItem, promoteItems } from '../src/main/firehose/promote.js';
 import { fetchLatestNews, fetchOpenNewsJson } from '../src/main/firehose/opennews-client.js';
 import { mapArticleToSourceItem } from '../src/main/firehose/opennews-mapper.js';
 import { normalizeSourceItem } from '../src/main/adapters/source-item.js';
@@ -796,6 +796,41 @@ test('promote moves exactly one tapped item from cold store into 00_Inbox, dedup
     promoteItem({ vaultRoot, source: 'opennews', id: 'nope', coldStoreRoot: coldRoot }),
     /cold store has no item opennews:nope/
   );
+});
+
+test('promoteItems batch-promotes a selection, dedupes and isolates failures', async () => {
+  const coldRoot = await freshColdStoreRoot();
+  const vaultRoot = path.join(PROJECT_ROOT, '.tmp-tests', crypto.randomUUID(), 'Content_Intelligence_Vault');
+  await fs.mkdir(vaultRoot, { recursive: true });
+
+  const mk = (id, title) => ({
+    source: 'opennews', source_id: id, title, url: `https://example.com/${id}`, text: title,
+    created_at: '2026-07-20T00:00:00.000Z', watchlist_coins: [], matched_themes: [],
+    raw: { ts: Date.parse('2026-07-20T00:00:00.000Z'), aiRating: { score: 90, grade: 'A', signal: 'long' } }
+  });
+  await storeItems({ root: coldRoot, source: 'opennews', items: [mk('a1', 'Alpha'), mk('b2', 'Bravo')] });
+
+  // Select both real items, the same item twice (dedupe in-batch), and one unknown id.
+  const { results, promoted, duplicate, failed } = await promoteItems({
+    vaultRoot,
+    coldStoreRoot: coldRoot,
+    refs: [
+      { source: 'opennews', id: 'a1' },
+      { source: 'opennews', id: 'b2' },
+      { source: 'opennews', id: 'a1' },       // duplicate selection -> collapses, promotes once
+      { source: 'opennews', id: 'ghost' }     // unknown -> isolated failure, others still land
+    ]
+  });
+
+  assert.equal(promoted, 2);
+  assert.equal(failed, 1);
+  assert.equal(duplicate, 0);
+  assert.equal(results.length, 3); // the repeated a1 was collapsed before promoting
+  assert.match(results.find((r) => r.id === 'a1').rawPath, /^00_Inbox\/OpenNews\//);
+  assert.match(results.find((r) => r.id === 'ghost').error, /cold store has no item opennews:ghost/);
+
+  const inbox = await fs.readdir(path.join(vaultRoot, '00_Inbox/OpenNews'));
+  assert.equal(inbox.length, 2); // exactly the two real items crossed the gate
 });
 
 test('fetchUserTweets POSTs the verified twitter_user_tweets contract', async () => {

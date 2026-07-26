@@ -201,7 +201,8 @@ Implemented:
 
 Implemented since (issue #3, #25 addendum):
 
-- The opennews firehose: real 6551 REST pull (`src/main/firehose/`), cold store under `firehose/<source>/` outside the vault, scheduled pull job, Discord poster with `source:id` markers, 💾 tap-to-save promote through the existing pipeline into `00_Inbox/OpenNews`, and the thin `bot:start` shell. `discord.js` is the sole approved dependency; tests fake all network/Discord I/O.
+- The opennews firehose: real 6551 REST pull (`src/main/firehose/`), cold store under `firehose/<source>/` outside the vault, scheduled pull job, Discord poster with `source:id` markers, and the thin `bot:start` shell. `discord.js` is the sole approved dependency; tests fake all network/Discord I/O.
+- Summary channel promote (replaces per-message 💾): `!summarize [since]` posts a grouped Coins/Themes digest (`formatGroupedDigest`) with a multi-select menu whose options carry each item's `source:id`; a selection batch-promotes through `promoteItems` into `00_Inbox/OpenNews`. Stateless (marker-in-value), restart-safe, dedupe-safe. Pure logic in `src/main/firehose/summary.js` (unit-tested); only the two Discord events live in `bot.js` (smoke-tested).
 
 Not yet done:
 

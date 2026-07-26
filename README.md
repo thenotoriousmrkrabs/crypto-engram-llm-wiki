@@ -40,7 +40,8 @@ Two clocks, two tiers:
 
 ```text
 Tier 1 — Firehose (node, free, continuous)
-  sources → tag (coins · themes · aiRating) → cold store (deduped) → Discord (facet tags) → 💾 promote
+  sources → tag (coins · themes · aiRating) → cold store (deduped) → raw firehose channel (archive)
+  !summarize → grouped Coins/Themes digest → multi-select → batch promote → 00_Inbox
 
 Tier 2 — LLM-Wiki (agent / Hermes, scheduled, costs tokens)
   raw + digest → analyze → compile Topics / Entities / Sources / Synthesis
@@ -61,7 +62,8 @@ Tier 2 — LLM-Wiki (agent / Hermes, scheduled, costs tokens)
 ```mermaid
 flowchart LR
     S["Sources:<br/>opennews ✅ · opentwitter 🟡<br/>Web Clipper 🟡 · Hermes X 🟡"] --> CS["Cold store<br/>(tagged, deduped) ✅"]
-    CS --> D["Discord curated feed ✅"] --> P["💾 promote → 00_Inbox"]
+    CS --> D["Raw firehose channel ✅"]
+    CS --> SUM["!summarize digest ✅"] --> SEL["multi-select"] --> P["batch promote → 00_Inbox"]
     CS --> Q["queryColdStore ✅"]
     P --> H["Hermes /compile 🟡"]
     Q --> H
@@ -76,7 +78,7 @@ flowchart LR
 
 - opennews firehose: curated union feed (coins pull + N theme pulls), dedup, pagination-for-recall, 4×/day cadence, cold store as seen-set.
 - Facet tagging (`watchlist_coins`, `matched_themes`, `aiRating`) on every item.
-- Discord curated channel with facet tag lines + 💾 tap-to-save promote.
+- Discord raw firehose channel with facet tag lines, plus a `!summarize [since]` command that posts a grouped Coins/Themes digest with a multi-select **batch promote** to the LLM-wiki (replaces per-message 💾).
 - Deterministic retrieval: `queryColdStore` + `formatDigest` + `npm run digest`.
 - Vault scaffold, `/compile` frontmatter contract, `lint:wiki`, 76 passing tests.
 
@@ -105,7 +107,7 @@ npm run ingest:mock
 npm run ingest:manual
 npm run ingest:web-clipper
 npm run ingest:opennews
-npm run bot:start        # firehose → Discord, with 💾 tap-to-save
+npm run bot:start        # firehose → Discord; !summarize → digest + batch promote
 npm run digest -- --coin HYPE --since 24h   # deterministic retrieval
 npm run lint:wiki
 npm run test
