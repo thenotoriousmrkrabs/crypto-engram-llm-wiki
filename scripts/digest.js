@@ -1,14 +1,14 @@
-import { queryColdStore, parseSince, formatDigest } from '../src/main/firehose/cold-store-query.js';
+import { queryColdStore, parseSince, formatDigest, formatGroupedDigest } from '../src/main/firehose/cold-store-query.js';
 
 // Ad-hoc digest over the firehose cold store. No AI — it filters and prints the
 // summary-ready cards; a summarize step (Hermes) reads this output.
 //
 //   node scripts/digest.js --coin HYPE --since today
 //   node scripts/digest.js --theme Polymarket --since 24h --score 85
-//   node scripts/digest.js --coin HYPE --theme Hyperliquid --since 7d --limit 20
+//   node scripts/digest.js --since 24h --grouped        # Coins/Themes sections
 //
 // Flags: --coin (repeatable/comma), --theme (repeatable/comma), --since,
-//        --score, --signal, --limit, --source.
+//        --score, --signal, --limit, --source, --grouped.
 
 function parseArgs(argv) {
   const args = { coins: [], themes: [] };
@@ -24,6 +24,7 @@ function parseArgs(argv) {
       case '--signal': args.signal = take(); break;
       case '--limit': args.limit = Number(take()); break;
       case '--source': args.source = take(); break;
+      case '--grouped': args.grouped = true; break;
       default: break;
     }
   }
@@ -49,7 +50,9 @@ async function main() {
     args.minScore ? `score ≥ ${args.minScore}` : ''
   ].filter(Boolean).join(' · ');
 
-  console.log(formatDigest(cards, { heading: scope ? `# Digest — ${scope}` : '# Digest' }));
+  const heading = scope ? `# Digest — ${scope}` : '# Digest';
+  const format = args.grouped ? formatGroupedDigest : formatDigest;
+  console.log(format(cards, { heading }));
 }
 
 main().catch((error) => {

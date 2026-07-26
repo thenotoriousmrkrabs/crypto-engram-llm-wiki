@@ -203,6 +203,7 @@ Implemented since (issue #3, #25 addendum):
 
 - The opennews firehose: real 6551 REST pull (`src/main/firehose/`), cold store under `firehose/<source>/` outside the vault, scheduled pull job, Discord poster with `source:id` markers, and the thin `bot:start` shell. `discord.js` is the sole approved dependency; tests fake all network/Discord I/O.
 - Summary channel promote (replaces per-message 💾): `!summarize [since]` posts a grouped Coins/Themes digest (`formatGroupedDigest`) with a multi-select menu whose options carry each item's `source:id`; a selection batch-promotes through `promoteItems` into `00_Inbox/OpenNews`. Stateless (marker-in-value), restart-safe, dedupe-safe. Pure logic in `src/main/firehose/summary.js` (unit-tested); only the two Discord events live in `bot.js` (smoke-tested).
+- Hermes summarize brief: the `/summarize` agent command (`.claude/commands/summarize.md`) reads the grouped digest (`node scripts/digest.js --since <w> --grouped`), writes a prose signal-vs-noise summary, and — **after the user promotes** — compiles a dated `40_Synthesis/Firehose_Brief_<date>.md` (`type: synthesis`) citing only promoted `00_Inbox/` items. Promote-then-brief is forced by the lint contract (sources[] must resolve under `00_Inbox/`).
 
 Not yet done:
 
