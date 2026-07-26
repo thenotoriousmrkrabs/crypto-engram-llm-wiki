@@ -89,12 +89,15 @@ log.md                    <- append-only: ingests, compiles, proposals, contradi
     _Raw_Drops/
   Web_Articles/
 05_Sources/
-10_Topics/
+10_Topics/                <- single source of truth: src/main/config/topics.js
   Hyperliquid/
   AI_Agents/
   Tokenized_Stocks/
   Stablecoins_RWA/
   Wallets/
+  Prediction_Markets/
+  DeFi/
+  Infrastructure/
   Crypto_Market_Structure/
 20_Entities/
   People/
@@ -297,7 +300,7 @@ Still open:
 ## Recommended Next Tasks
 
 1. Run the first `/compile` pass and verify `05_Sources/` pages with `npm run lint:wiki`.
-2. Collapse the four hand-synced topic lists (`TOPIC_RULES`, `TOPICS`, `REQUIRED_VAULT_FOLDERS`, `config/topics.yaml`) — seven of thirteen classifier topics silently fall back to the catch-all.
+2. ~~Collapse the four hand-synced topic lists — seven of thirteen classifier topics silently fell back to the catch-all.~~ **Done:** `src/main/config/topics.js` is now the single source of truth (`TOPIC_RULES` + `TOPIC_HOMES`); `classifier.js`, `wiki.js`, and `writer.js` all derive from it. The 7 orphan topics got real homes — `prediction_markets`→Prediction_Markets, `defi`(+`dex_aggregators`)→DeFi, `chains`+`infra`→Infrastructure, `ai`→AI_Agents, `regulation`→Crypto_Market_Structure. An import-time assertion fails fast if any rule routes to a missing home.
 3. Delete the speculative MCP adapter stubs, the inert OpenTrade adapter, the unimported `src/main/index.js` barrel and its zero-caller exports, and `templates.js` (ships lint-forbidden fields).
 4. Refresh the stale v1 docs (`docs/HANDOFF.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`) to the decided design.
 5. Decide the Web Clipper operating model: save directly inside the vault or copy from an external folder.

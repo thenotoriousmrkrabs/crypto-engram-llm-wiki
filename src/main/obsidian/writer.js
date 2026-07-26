@@ -3,6 +3,7 @@ import fsSync from 'node:fs';
 import path from 'node:path';
 import { replaceFrontmatter, splitFrontmatter } from '../utils/frontmatter.js';
 import { PROJECT_ROOT, assertInside, toVaultRelative } from '../utils/paths.js';
+import { TOPIC_FOLDERS } from '../config/topics.js';
 import { TEMPLATE_CONTENT } from './templates.js';
 
 export const REQUIRED_VAULT_FOLDERS = [
@@ -18,12 +19,9 @@ export const REQUIRED_VAULT_FOLDERS = [
   '00_Inbox/Web_Articles',
   '05_Sources',
   '10_Topics',
-  '10_Topics/Hyperliquid',
-  '10_Topics/AI_Agents',
-  '10_Topics/Tokenized_Stocks',
-  '10_Topics/Stablecoins_RWA',
-  '10_Topics/Wallets',
-  '10_Topics/Crypto_Market_Structure',
+  // Topic subfolders are derived from the single source of truth (config/topics.js)
+  // so this list can never drift from the classifier's routing again.
+  ...TOPIC_FOLDERS,
   '20_Entities',
   '20_Entities/People',
   '20_Entities/Protocols',
