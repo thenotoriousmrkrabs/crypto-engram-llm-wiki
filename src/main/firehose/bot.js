@@ -1,21 +1,32 @@
-import { Client, GatewayIntentBits, Partials } from 'discord.js';
+import { Client, GatewayIntentBits, StringSelectMenuBuilder, ActionRowBuilder } from 'discord.js';
 import { loadFirehoseConfig } from './config.js';
 import { OpenNewsMCPAdapter } from '../adapters/opennews-mcp-adapter.js';
 import { runPullAndPost } from './pull-and-post.js';
 import { hasItem, itemId } from './cold-store.js';
-import { parseMarker } from './discord-poster.js';
-import { promoteItem } from './promote.js';
+import { promoteItems } from './promote.js';
+import { queryColdStore, parseSince } from './cold-store-query.js';
+import {
+  parseSummarizeCommand,
+  buildSummaryPost,
+  formatPromoteResult,
+  splitForDiscord,
+  refFromValue,
+  SUMMARY_PROMOTE_ID
+} from './summary.js';
 import { getVaultRoot } from '../utils/config.js';
 
 // The always-on bot shell (issue #3 commit 12). Deliberately THIN: every
-// behavior here — config, pull, cold store, posting, marker parsing,
+// behavior here — config, pull, cold store, posting, summary building,
 // promote — is a tested function; this file only wires Discord events and
 // a timer to them. Live Discord/timer I/O is smoke-tested, not unit-tested.
 //
 // Requires the MESSAGE CONTENT intent (Discord dev portal -> Bot) so the
-// tap handler can read the `source:id` marker out of the tapped message.
-
-const SAVE_EMOJI = '💾';
+// `!summarize` command and the select-menu markers can be read.
+//
+// Promotion is now batch-only through the summary channel (`!summarize` ->
+// grouped digest -> multi-select -> Promote). The old per-message 💾 reaction
+// was removed: with 100+ raw messages it was the wrong surface, and the
+// summary channel replaces it with one deliberate selection.
 
 export function createFirehoseBot({ env = process.env, log = console } = {}) {
   const config = loadFirehoseConfig({ env });
@@ -35,10 +46,8 @@ export function createFirehoseBot({ env = process.env, log = console } = {}) {
     intents: [
       GatewayIntentBits.Guilds,
       GatewayIntentBits.GuildMessages,
-      GatewayIntentBits.GuildMessageReactions,
       GatewayIntentBits.MessageContent
-    ],
-    partials: [Partials.Message, Partials.Channel, Partials.Reaction]
+    ]
   });
 
   let timer = null;
@@ -77,35 +86,61 @@ export function createFirehoseBot({ env = process.env, log = console } = {}) {
     timer = setInterval(tick, config.pullIntervalMs);
   });
 
-  client.on('messageReactionAdd', async (reaction, user) => {
+  // `!summarize [since]` in the summary channel: query the cold store, post the
+  // grouped Coins/Themes digest, and attach a select menu whose options carry
+  // each item's source:id marker. The reading surface that replaces scrolling
+  // the raw firehose channel.
+  client.on('messageCreate', async (message) => {
     try {
-      if (user.bot) {
+      if (message.author?.bot || message.channelId !== config.summaryChannelId) {
         return;
       }
-      if (reaction.partial) {
-        await reaction.fetch();
-      }
-      if (reaction.emoji.name !== SAVE_EMOJI) {
+      const command = parseSummarizeCommand(message.content);
+      if (!command) {
         return;
       }
-      if (reaction.message.partial) {
-        await reaction.message.fetch();
-      }
-      const marker = parseMarker(reaction.message.content);
-      if (!marker) {
-        return;
-      }
-
-      const { promoted, duplicate, rawPath } = await promoteItem({
-        vaultRoot,
-        source: marker.source,
-        id: marker.id
+      const cards = await queryColdStore({ since: parseSince(command.since), minScore: config.minScore });
+      const { content, options } = buildSummaryPost(cards, {
+        heading: `# Firehose summary — last ${command.since}`
       });
-      const status = promoted ? 'saved to wiki inbox' : duplicate ? 'already in the wiki' : 'not saved';
-      await reaction.message.reply(`💾 ${status}${rawPath ? `: \`${rawPath}\`` : ''}`);
-      log.log(`promote ${marker.source}:${marker.id} -> ${status}`);
+      const chunks = splitForDiscord(content);
+      // Send the digest across as many messages as the 2000-char cap needs; the
+      // select menu rides on the final chunk (or its own message if there are none).
+      for (let i = 0; i < chunks.length - 1; i += 1) {
+        await message.channel.send(chunks[i]);
+      }
+      const last = chunks[chunks.length - 1];
+      const components = options.length
+        ? [new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+              .setCustomId(SUMMARY_PROMOTE_ID)
+              .setPlaceholder('Select items to promote to the LLM-wiki')
+              .setMinValues(1)
+              .setMaxValues(options.length)
+              .addOptions(options)
+          )]
+        : [];
+      await message.channel.send({ content: last, components });
+      log.log(`summarize (${command.since}): ${cards.length} items, ${options.length} selectable`);
     } catch (error) {
-      log.error(`promote failed: ${error.message}`);
+      log.error(`summarize failed: ${error.message}`);
+    }
+  });
+
+  // The batch promote: a selection interaction already carries every chosen
+  // source:id, so this is stateless — no message map, restart-safe, dedupe-safe.
+  client.on('interactionCreate', async (interaction) => {
+    try {
+      if (!interaction.isStringSelectMenu?.() || interaction.customId !== SUMMARY_PROMOTE_ID) {
+        return;
+      }
+      await interaction.deferReply({ ephemeral: true });
+      const refs = interaction.values.map(refFromValue).filter(Boolean);
+      const result = await promoteItems({ vaultRoot, refs });
+      await interaction.editReply(formatPromoteResult(result));
+      log.log(`summary promote: ${result.promoted} saved, ${result.duplicate} dup, ${result.failed} failed`);
+    } catch (error) {
+      log.error(`summary promote failed: ${error.message}`);
     }
   });
 

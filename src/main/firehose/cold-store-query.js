@@ -160,20 +160,62 @@ export function parseSince(spec, now = new Date()) {
   return Number.isNaN(parsed) ? undefined : parsed;
 }
 
+// One numbered card line, shared by the flat and grouped digests so the two
+// renderings never drift.
+function formatCardLine(index, card) {
+  const facets = [
+    card.coins.join(' '),
+    card.themes.map((theme) => `#${theme.replace(/\s+/g, '')}`).join(' ')
+  ].filter(Boolean).join(' · ');
+  const rating = card.score != null ? `AI ${card.score} ${card.grade} ${card.signal}`.trim() : '';
+  const meta = [facets, rating].filter(Boolean).join(' · ');
+  return `${index}. ${card.title}\n   ${card.url}${meta ? `\n   ${meta}` : ''}`;
+}
+
 // Compact, low-token digest a human or Hermes can read/summarize.
 export function formatDigest(cards, { heading } = {}) {
   const header = heading ? `${heading}\n` : '';
   if (cards.length === 0) {
     return `${header}No matching items.`;
   }
-  const body = cards.map((card, index) => {
-    const facets = [
-      card.coins.join(' '),
-      card.themes.map((theme) => `#${theme.replace(/\s+/g, '')}`).join(' ')
-    ].filter(Boolean).join(' · ');
-    const rating = card.score != null ? `AI ${card.score} ${card.grade} ${card.signal}`.trim() : '';
-    const meta = [facets, rating].filter(Boolean).join(' · ');
-    return `${index + 1}. ${card.title}\n   ${card.url}${meta ? `\n   ${meta}` : ''}`;
-  }).join('\n\n');
+  const body = cards.map((card, index) => formatCardLine(index + 1, card)).join('\n\n');
   return `${header}${cards.length} item(s)\n\n${body}`;
+}
+
+// Split a card list into the three reading buckets the summary channel shows:
+// watchlist-coin items first, then theme-only items, then anything left. Cards
+// arrive newest-first, so each bucket stays newest-first. `ordered` is the flat
+// sequence the Discord select menu reuses, so the numbered summary and the
+// dropdown options line up 1:1 — this is the coin/theme separation the raw
+// firehose channel lacks, delivered inside the thing you actually read.
+export function orderCardsForSummary(cards) {
+  const coins = cards.filter((card) => card.coins.length > 0);
+  const themes = cards.filter((card) => card.coins.length === 0 && card.themes.length > 0);
+  const other = cards.filter((card) => card.coins.length === 0 && card.themes.length === 0);
+  return { coins, themes, other, ordered: [...coins, ...themes, ...other] };
+}
+
+// The grouped summary Hermes posts to the summary channel. Same cards as the
+// flat digest, but sectioned into Coins / Themes / Other with a single running
+// number across all sections (so item N in the text == option N in the menu).
+export function formatGroupedDigest(cards, { heading } = {}) {
+  const header = heading ? `${heading}\n` : '';
+  if (cards.length === 0) {
+    return `${header}No matching items.`;
+  }
+  const { coins, themes, other } = orderCardsForSummary(cards);
+  let index = 0;
+  const section = (title, list) => {
+    if (list.length === 0) {
+      return '';
+    }
+    const body = list.map((card) => formatCardLine((index += 1), card)).join('\n\n');
+    return `\n${title} (${list.length})\n\n${body}`;
+  };
+  const sections = [
+    section('📈 Watchlist Coins', coins),
+    section('🎯 Themes', themes),
+    section('🗞️ Other', other)
+  ].filter(Boolean).join('\n');
+  return `${header}${cards.length} item(s)${sections}`;
 }

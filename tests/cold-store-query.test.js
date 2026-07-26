@@ -5,7 +5,13 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { PROJECT_ROOT } from '../src/main/utils/paths.js';
 import { storeItems } from '../src/main/firehose/cold-store.js';
-import { queryColdStore, parseSince, formatDigest } from '../src/main/firehose/cold-store-query.js';
+import {
+  queryColdStore,
+  parseSince,
+  formatDigest,
+  formatGroupedDigest,
+  orderCardsForSummary
+} from '../src/main/firehose/cold-store-query.js';
 
 async function seededStore(items) {
   const root = path.join(PROJECT_ROOT, '.tmp-tests', crypto.randomUUID(), 'firehose');
@@ -103,4 +109,47 @@ test('formatDigest renders compact cards with facets and rating', async () => {
   assert.match(text, /HYPE · #Hyperliquid · AI 90 A long/);
 
   assert.equal(formatDigest([], { heading: '# Digest' }), '# Digest\nNo matching items.');
+});
+
+function card({ id, title = id, coins = [], themes = [], score = 90 }) {
+  return {
+    id, source: 'opennews', title, url: `https://example.com/${id}`,
+    coins, themes, score, grade: 'A', signal: 'long', published: '', tsMs: 0, text: title
+  };
+}
+
+test('orderCardsForSummary buckets coins, then theme-only, then other', () => {
+  const cards = [
+    card({ id: 'both', coins: ['HYPE'], themes: ['DeFi'] }),
+    card({ id: 'themeonly', themes: ['Polymarket'] }),
+    card({ id: 'bare' }),
+    card({ id: 'coinonly', coins: ['BTC'] })
+  ];
+  const { coins, themes, other, ordered } = orderCardsForSummary(cards);
+  assert.deepEqual(coins.map((c) => c.id), ['both', 'coinonly']); // coin wins even if it also has a theme
+  assert.deepEqual(themes.map((c) => c.id), ['themeonly']);
+  assert.deepEqual(other.map((c) => c.id), ['bare']);
+  assert.deepEqual(ordered.map((c) => c.id), ['both', 'coinonly', 'themeonly', 'bare']);
+});
+
+test('formatGroupedDigest sections the cards with one running number', () => {
+  const text = formatGroupedDigest([
+    card({ id: 'c1', title: 'HYPE moves', coins: ['HYPE'] }),
+    card({ id: 't1', title: 'Poly news', themes: ['Polymarket'] }),
+    card({ id: 'o1', title: 'Loose end' })
+  ], { heading: '# Firehose' });
+
+  assert.match(text, /# Firehose\n3 item\(s\)/);
+  assert.match(text, /📈 Watchlist Coins \(1\)/);
+  assert.match(text, /🎯 Themes \(1\)/);
+  assert.match(text, /🗞️ Other \(1\)/);
+  // Numbering runs continuously across sections: coin=1, theme=2, other=3.
+  assert.match(text, /1\. HYPE moves/);
+  assert.match(text, /2\. Poly news/);
+  assert.match(text, /3\. Loose end/);
+  // Order in the string is coins-before-themes-before-other.
+  assert.ok(text.indexOf('HYPE moves') < text.indexOf('Poly news'));
+  assert.ok(text.indexOf('Poly news') < text.indexOf('Loose end'));
+
+  assert.equal(formatGroupedDigest([], { heading: '# X' }), '# X\nNo matching items.');
 });
