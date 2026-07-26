@@ -1,7 +1,30 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { contentKey, dedupeByContent } from '../src/main/firehose/relevance.js';
+import { contentKey, dedupeByContent, isNoise } from '../src/main/firehose/relevance.js';
 import { normalizeUrl } from '../src/main/utils/dedupe.js';
+
+function noiseItem({ title, coins = [], themes = [] }) {
+  return { title, text: '', watchlist_coins: coins, matched_themes: themes };
+}
+
+test('isNoise drops big-cap-only macro/geopolitical headlines', () => {
+  assert.equal(isNoise(noiseItem({ title: 'Missiles hit oil tanker near Iran', coins: ['BTC'] })), true);
+  assert.equal(isNoise(noiseItem({ title: 'US completes latest strikes on Iranian infrastructure', coins: ['BTC', 'ETH'] })), true); // stem catches "Iranian"
+  assert.equal(isNoise(noiseItem({ title: 'Fed signals a rate cut as inflation cools', coins: ['ETH'] })), true);
+  assert.equal(isNoise(noiseItem({ title: '胡塞武装导弹袭击两艘沙特油轮', coins: ['BTC'] })), true); // Chinese geopolitical
+});
+
+test('isNoise keeps anything with crypto context or a non-big-cap / theme', () => {
+  // crypto keep-guard wins even next to a war word (the safe bias)
+  assert.equal(isNoise(noiseItem({ title: 'AFX bridge exploited for $24M USDC', coins: ['ETH'] })), false);
+  assert.equal(isNoise(noiseItem({ title: 'Trump vows to bomb a bridge for every ship Iran hits', coins: ['BTC'] })), false); // "bridge" keeps it — documents the conservative choice
+  // a non-big-cap tag = your core interest, exempt
+  assert.equal(isNoise(noiseItem({ title: 'Missiles hit oil tanker near Iran', coins: ['HYPE'] })), false);
+  // a matched theme = curated narrative, exempt
+  assert.equal(isNoise(noiseItem({ title: 'Iran tensions rattle markets', coins: ['BTC'], themes: ['stablecoin'] })), false);
+  // no noise word at all = kept
+  assert.equal(isNoise(noiseItem({ title: 'Bitcoin ETF sees record inflows', coins: ['BTC'] })), false);
+});
 
 test('normalizeUrl folds twitter/x host aliases and strips tracking params', () => {
   assert.equal(normalizeUrl('https://twitter.com/a/status/123'), 'https://x.com/a/status/123');

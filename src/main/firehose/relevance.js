@@ -20,6 +20,46 @@ export function hasFacet(itemOrCard) {
   return coins.length > 0 || themes.length > 0;
 }
 
+// Lever 3 — category noise gate. The news service scores macro/geopolitical
+// events highly and stamps a big-cap coin on them (they move crypto prices), so
+// "Missiles hit oil tanker near Iran" arrives tagged BTC and slips past the coin
+// filter. Score can't catch it (war headlines score high). This drops such items
+// by CATEGORY, but only under strict conditions so real signal is never lost:
+//
+//   drop iff:  no theme matched (theme items are exempt: tokenized stocks / RWA)
+//         AND  coins are ONLY big-caps {BTC,ETH,SOL,BNB} (HYPE/alts exempt)
+//         AND  the text has NO crypto-native word (safe keep-guard)
+//         AND  the text HAS a macro/geopolitical/equities word.
+//
+// Conservative by design: an ambiguous word like "bridge" keeps the item, so a
+// real "bridge exploited for $7.5M" is never dropped even if a stray "bomb a
+// bridge" war headline slips through. Leaking a little macro beats losing signal.
+const BIG_CAPS = new Set(['BTC', 'ETH', 'SOL', 'BNB']);
+
+// Stems (no trailing boundary) catch inflections: iran->iranian, russia->russian.
+const NOISE_EN = /\b(iran|tehran|hormuz|houthi|ukrain|russia|kyiv|moscow|gaza|israel|hamas|missile|tanker|warship|airstrike|ceasefire|sanction|nasdaq|inflation)|\b(fed|cpi|troops|earnings|federal reserve|jerome powell|interest rate|treasury yield|price target|quarterly revenue|dow jones|s&p 500)\b|rate (cut|hike)|stock (jumps?|falls?|surges?|rises?|slid|rallies)|analyst (rating|upgrade|downgrade)/i;
+const NOISE_ZH = /伊朗|俄罗斯|乌克兰|以色列|美联储|战争|导弹|制裁|霍尔木兹|加沙|轰炸机|油轮/;
+const CRYPTO_GUARD = /\b(onchain|on-chain|defi|token|protocol|wallet|exploit|hack|staking|airdrop|liquidity|tvl|smart contract|blockchain|crypto|stablecoin|perp|dex|rollup|validator|mainnet|testnet|bridge|mint|burn|nft|dao|listing|memecoin|binance|coinbase|usdc|usdt|etf)\b|链上|代币|钱包|质押/i;
+
+export function isNoise(itemOrCard) {
+  const coins = itemOrCard.watchlist_coins || itemOrCard.coins || [];
+  const themes = itemOrCard.matched_themes || itemOrCard.themes || [];
+  if (themes.length > 0) {
+    return false; // a matched theme means it's on a curated narrative — never noise
+  }
+  if (coins.length === 0) {
+    return false; // untagged is Lever 2's job, not this gate's
+  }
+  if (!coins.every((coin) => BIG_CAPS.has(String(coin).toUpperCase()))) {
+    return false; // any HYPE/alt tag = your core interest, exempt
+  }
+  const text = `${itemOrCard.title || ''} ${itemOrCard.text || ''}`;
+  if (CRYPTO_GUARD.test(text)) {
+    return false; // crypto-native context present — keep (the safe bias)
+  }
+  return NOISE_EN.test(text) || NOISE_ZH.test(text);
+}
+
 // A stable, host-agnostic key for one item or card. Priority:
 //   1. a tweet/status id  -> `tweet:<id>`   (x.com == twitter.com == mobile)
 //   2. any other url       -> `url:<normalized>` (tracking params stripped)

@@ -143,6 +143,19 @@ test('queryColdStore collapses the same tweet stored from x.com and twitter.com'
   assert.equal(withDupes.length, 3); // opt-out keeps every raw copy
 });
 
+test('queryColdStore drops big-cap macro noise but keeps crypto tagged with the same coin', async () => {
+  const root = await seededStore([
+    { ...item({ id: 'war', ts: T, coins: ['BTC'], score: 90 }), title: 'Missiles hit oil tanker near Iran', text: 'Iran conflict' },
+    { ...item({ id: 'exploit', ts: T, coins: ['BTC'], score: 85 }), title: 'DeFi protocol exploited for $24M', text: 'onchain hack' },
+    item({ id: 'hype', ts: T, coins: ['HYPE'], title: 'Iran war shakes markets' }) // non-big-cap exempt
+  ]);
+  const cards = await queryColdStore({ root });
+  assert.deepEqual(cards.map((c) => c.id).sort(), ['exploit', 'hype']); // war/BTC dropped, crypto/BTC + HYPE kept
+
+  const all = await queryColdStore({ root, dropNoise: false });
+  assert.equal(all.length, 3); // opt-out keeps the macro item
+});
+
 function card({ id, title = id, coins = [], themes = [], score = 90 }) {
   return {
     id, source: 'opennews', title, url: `https://example.com/${id}`,
