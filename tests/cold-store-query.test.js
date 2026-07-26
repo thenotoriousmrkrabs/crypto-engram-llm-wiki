@@ -73,12 +73,26 @@ test('queryColdStore unions coins and themes, ANDs score/since/signal', async ()
 
 test('queryColdStore honors a result limit', async () => {
   const root = await seededStore([
-    item({ id: 'a', ts: T }),
-    item({ id: 'b', ts: T - 1 }),
-    item({ id: 'c', ts: T - 2 })
+    item({ id: 'a', ts: T, coins: ['HYPE'] }),
+    item({ id: 'b', ts: T - 1, coins: ['HYPE'] }),
+    item({ id: 'c', ts: T - 2, coins: ['HYPE'] })
   ]);
   const cards = await queryColdStore({ root, limit: 2 });
   assert.equal(cards.length, 2);
+});
+
+test('queryColdStore drops untagged items (no coin, no theme) by default', async () => {
+  const root = await seededStore([
+    item({ id: 'tagged', ts: T, coins: ['HYPE'] }),
+    item({ id: 'themed', ts: T, themes: ['Polymarket'] }),
+    item({ id: 'untagged', ts: T }),          // coins-query loose match — noise
+    item({ id: 'untagged2', ts: T })
+  ]);
+  const cards = await queryColdStore({ root });
+  assert.deepEqual(cards.map((c) => c.id).sort(), ['tagged', 'themed']); // both untagged dropped
+
+  const all = await queryColdStore({ root, requireFacet: false });
+  assert.equal(all.length, 4); // opt-out keeps untagged
 });
 
 test('queryColdStore returns [] for a missing store', async () => {
