@@ -109,6 +109,7 @@ npm run ingest:web-clipper
 npm run ingest:opennews
 npm run bot:start        # firehose → Discord; !summarize → digest + batch promote
 npm run digest -- --coin HYPE --since 24h   # deterministic retrieval
+npm run digest -- --since 24h --grouped     # Coins/Themes-sectioned digest (Hermes reads this)
 npm run lint:wiki
 npm run test
 ```

@@ -89,6 +89,8 @@ Hard rules, enforced by `npm run lint:wiki`:
 
 Set `confidence` honestly: `high` = the source is explicit and you are restating it; `medium` = you inferred or merged across sources; `low` = thin, single-source, or contradicted. `confidence` is load-bearing — it is what triggers escalation-to-raw at read time.
 
+**Synthesis briefs (`40_Synthesis/`, `type: synthesis`)** are compiled by the sibling **`/summarize`** command over a promoted firehose window — same contract, `sources[]` cites only promoted `00_Inbox/` items. See `.claude/commands/summarize.md`.
+
 ### 2e. Update `index.md`
 
 Append or update one row per page you wrote: `| path | summary | tags |`. Match on path — update the existing row rather than appending a duplicate.
