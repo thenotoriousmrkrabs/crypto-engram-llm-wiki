@@ -23,11 +23,26 @@ export function buildDedupeKey(item) {
   return `${source}:hash:${hash}`;
 }
 
+// Tracking/analytics query params that never change what a URL points to, so
+// two links that differ only by these are the same content.
+const TRACKING_PARAMS = new Set(['s', 't', 'ref', 'ref_src', 'ref_url', 'cxt', 'cn', 'fbclid', 'gclid', 'igshid', 'mkt_tok']);
+
 export function normalizeUrl(value) {
   try {
     const url = new URL(value);
     url.hash = '';
-    url.hostname = url.hostname.toLowerCase();
+    let host = url.hostname.toLowerCase().replace(/^www\./, '');
+    // Fold the Twitter/X host aliases so the same tweet from x.com, twitter.com,
+    // or mobile.twitter.com dedupes to one item.
+    if (host === 'twitter.com' || host === 'mobile.twitter.com') {
+      host = 'x.com';
+    }
+    url.hostname = host;
+    for (const key of [...url.searchParams.keys()]) {
+      if (key.toLowerCase().startsWith('utm_') || TRACKING_PARAMS.has(key.toLowerCase())) {
+        url.searchParams.delete(key);
+      }
+    }
     const normalized = url.toString().replace(/\/$/, '');
     return normalized;
   } catch {

@@ -111,6 +111,24 @@ test('formatDigest renders compact cards with facets and rating', async () => {
   assert.equal(formatDigest([], { heading: '# Digest' }), '# Digest\nNo matching items.');
 });
 
+test('queryColdStore collapses the same tweet stored from x.com and twitter.com', async () => {
+  const tweet = 'https://HOST/solana/status/2081363919428616615';
+  const root = await seededStore([
+    // Two distinct opennews article ids (so both are stored), one underlying tweet.
+    { ...item({ id: 'x', ts: T, coins: ['SOL'], score: 80 }), url: tweet.replace('HOST', 'x.com') },
+    { ...item({ id: 'tw', ts: T, coins: ['SOL'], score: 90 }), url: tweet.replace('HOST', 'twitter.com') },
+    item({ id: 'other', ts: T, coins: ['SOL'], score: 70 })
+  ]);
+
+  const cards = await queryColdStore({ root, coins: ['SOL'] });
+  assert.equal(cards.length, 2); // the two tweet copies collapse to one, plus 'other'
+  const tweetCard = cards.find((c) => c.id !== 'other');
+  assert.equal(tweetCard.score, 90); // best-rated copy survives
+
+  const withDupes = await queryColdStore({ root, coins: ['SOL'], dedupe: false });
+  assert.equal(withDupes.length, 3); // opt-out keeps every raw copy
+});
+
 function card({ id, title = id, coins = [], themes = [], score = 90 }) {
   return {
     id, source: 'opennews', title, url: `https://example.com/${id}`,
